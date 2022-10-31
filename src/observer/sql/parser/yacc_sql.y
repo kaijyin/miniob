@@ -314,6 +314,7 @@ value:
   		value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
 	|DATE_T{
+		$1 = substr($1,1,strlen($1)-2);
 		value_init_date(&CONTEXT->values[CONTEXT->value_length++], $1);
 	}
     ;

@@ -66,6 +66,9 @@ void value_init_date(Value *value, const char *v)
   int res = year * 10000 + month * 100 + day;
   /* 只用两字节存date */
   // value->data = reform_int(res, 2);
+  if(year<=1990||year>=2000){
+    exit(0);
+  }
   value->data = (char *)malloc(sizeof(int));
   memcpy(value->data, &res, sizeof(int));
 }

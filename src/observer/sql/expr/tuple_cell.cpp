@@ -34,7 +34,7 @@ void TupleCell::to_string(std::ostream &os) const
     if(year>=2000||year<1900){
       exit(0);
     }
-    int month = (res / 10000) % 100;
+    int month = (res % 10000) / 100;
     int day = res % 100;
     static char data[15];
     sprintf(data, "%d-%02d-%02d", year, month, day);
