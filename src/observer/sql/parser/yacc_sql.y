@@ -113,6 +113,7 @@ ParserContext *get_context(yyscan_t scanner)
 	char *position;
 }
 
+%token <string> DATE_T
 %token <number> NUMBER
 %token <floats> FLOAT 
 %token <string> ID
@@ -129,7 +130,7 @@ ParserContext *get_context(yyscan_t scanner)
 
 %%
 
-commands:		//commands or sqls. parser starts here.
+commands: %empty 		//commands or sqls. parser starts here.
     /* empty */
     | commands command
     ;
@@ -232,7 +233,7 @@ create_table:		/*create table 语句的语法解析树*/
 			CONTEXT->value_length = 0;
 		}
     ;
-attr_def_list:
+attr_def_list: %empty 
     /* empty */
     | COMMA attr_def attr_def_list {    }
     ;
@@ -295,7 +296,7 @@ insert:				/*insert   语句的语法解析树*/
       CONTEXT->value_length=0;
     }
 
-value_list:
+value_list: %empty 
     /* empty */
     | COMMA value value_list  { 
   		// CONTEXT->values[CONTEXT->value_length++] = *$2;
@@ -312,6 +313,9 @@ value:
 			$1 = substr($1,1,strlen($1)-2);
   		value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
+	|DATE_T{
+		value_init_date(&CONTEXT->values[CONTEXT->value_length++], $1);
+	}
     ;
     
 delete:		/*  delete 语句的语法解析树*/
@@ -370,7 +374,7 @@ select_attr:
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
     ;
-attr_list:
+attr_list: %empty 
     /* empty */
     | COMMA ID attr_list {
 			RelAttr attr;
@@ -388,19 +392,19 @@ attr_list:
   	  }
   	;
 
-rel_list:
+rel_list: %empty 
     /* empty */
     | COMMA ID rel_list {	
 				selects_append_relation(&CONTEXT->ssql->sstr.selection, $2);
 		  }
     ;
-where:
+where: %empty 
     /* empty */ 
     | WHERE condition condition_list {	
 				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;
 			}
     ;
-condition_list:
+condition_list: %empty 
     /* empty */
     | AND condition condition_list {
 				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;

@@ -28,6 +28,18 @@ void TupleCell::to_string(std::ostream &os) const
     float v = *(float *)data_;
     os << double2string(v);
   } break;
+  case DATE:{
+    int res = *(int *)data_;
+    int year = res / 10000;
+    if(year>=2000||year<1900){
+      exit(0);
+    }
+    int month = (res / 10000) % 100;
+    int day = res % 100;
+    static char data[15];
+    sprintf(data, "%d-%02d-%02d", year, month, day);
+    os << data;
+  } break;
   case CHARS: {
     for (int i = 0; i < length_; i++) {
       if (data_[i] == '\0') {
@@ -47,6 +59,7 @@ int TupleCell::compare(const TupleCell &other) const
   if (this->attr_type_ == other.attr_type_) {
     switch (this->attr_type_) {
     case INTS: return compare_int(this->data_, other.data_);
+    case DATE: return compare_int(this->data_, other.data_);
     case FLOATS: return compare_float(this->data_, other.data_);
     case CHARS: return compare_string(this->data_, this->length_, other.data_, other.length_);
     default: {

@@ -30,3 +30,10 @@ std::string double2string(double v)
 
   return std::string(buf, len);
 }
+void *reform_int(int val, int byte){
+  char *p = (char *)&val;
+  p += 4 - byte;
+  char *data = (char*)malloc(byte);
+  memcpy(data, p, byte);
+  return data;
+}

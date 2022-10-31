@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse.h"
 #include "rc.h"
 #include "common/log/log.h"
+#include "util/util.h"
 
 RC parse(char *st, Query *sqln);
 
@@ -56,6 +57,17 @@ void value_init_string(Value *value, const char *v)
 {
   value->type = CHARS;
   value->data = strdup(v);
+}
+void value_init_date(Value *value, const char *v)
+{
+  value->type = DATE;
+  int year, month, day;
+  sscanf(v, "%d-%d-%d", &year, &month, &day);
+  int res = year * 10000 + month * 100 + day;
+  /* 只用两字节存date */
+  // value->data = reform_int(res, 2);
+  value->data = (char *)malloc(sizeof(int));
+  memcpy(value->data, &res, sizeof(int));
 }
 void value_destroy(Value *value)
 {

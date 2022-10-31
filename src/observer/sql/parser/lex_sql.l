@@ -37,7 +37,7 @@ QUOTE            [\'\"]
 
 [\-]?{DIGIT}+                                        yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
 [\-]?{DIGIT}+{DOT}{DIGIT}+                           yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
-
+{QUOTE}([0-9]+)\-([0-9]+)\-([0-9]+){QUOTE}           yylval->string=strdup(yytext); RETURN_TOKEN(DATE_T);
 ";"                                                  RETURN_TOKEN(SEMICOLON);
 {DOT}                                                RETURN_TOKEN(DOT);
 "*"                                                  RETURN_TOKEN(STAR);

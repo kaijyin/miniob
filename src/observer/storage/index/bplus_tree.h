@@ -44,10 +44,10 @@ public:
 
   int operator()(const char *v1, const char *v2) const {
     switch (attr_type_) {
+    case DATE:
     case INTS: {
-      return compare_int((void *)v1, (void *)v2);
-    }
-      break;
+        return compare_int((void *)v1, (void *)v2);
+    } break;
     case FLOATS: {
       return compare_float((void *)v1, (void *)v2);
     }
