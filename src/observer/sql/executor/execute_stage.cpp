@@ -310,6 +310,11 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
     return nullptr;
   }
 
+  if(better_filter->comp()!= CompOp::EQUAL_TO){
+    LOG_ERROR("not equal!");
+    exit(0);
+  }
+
   Expression *left = better_filter->left();
   Expression *right = better_filter->right();
   CompOp comp = better_filter->comp();
