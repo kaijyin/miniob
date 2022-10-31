@@ -133,14 +133,14 @@ void ExecuteStage::handle_request(common::StageEvent *event)
   Stmt *stmt = sql_event->stmt();
   Session *session = session_event->session();
   Query *sql = sql_event->query();
-
   if (stmt != nullptr) {
     switch (stmt->type()) {
     case StmtType::SELECT: {
       do_select(sql_event);
     } break;
     case StmtType::INSERT: {
-      do_insert(sql_event);
+       do_insert(sql_event);
+       DefaultHandler::get_default().sync();
     } break;
     case StmtType::UPDATE: {
       //do_update((UpdateStmt *)stmt, session_event);
@@ -162,6 +162,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
     } break;
     case SCF_CREATE_INDEX: {
       do_create_index(sql_event);
+      DefaultHandler::get_default().sync();
     } break;
     case SCF_SHOW_TABLES: {
       do_show_tables(sql_event);
@@ -176,10 +177,8 @@ void ExecuteStage::handle_request(common::StageEvent *event)
       default_storage_stage_->handle_event(event);
     } break;
     case SCF_SYNC: {
-      /*
       RC rc = DefaultHandler::get_default().sync();
       session_event->set_response(strrc(rc));
-      */
     } break;
     case SCF_BEGIN: {
       do_begin(sql_event);

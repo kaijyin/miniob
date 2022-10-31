@@ -480,6 +480,10 @@ RC DiskBufferPool::flush_all_pages()
 {
   std::list<Frame *> used = frame_manager_.find_list(file_desc_);
   for (Frame *frame : used) {
+    if(!frame->dirty_){
+      /* 只刷脏页,加快效率 */
+      continue;
+    }
     RC rc = flush_page(*frame);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to flush all pages");

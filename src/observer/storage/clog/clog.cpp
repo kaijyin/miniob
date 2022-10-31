@@ -257,25 +257,25 @@ RC CLogBuffer::block_copy(int32_t offset, CLogBlock *log_block)
 //
 CLogFile::CLogFile(const char *path)
 {
-  log_file_ = new PersistHandler();
-  RC rc = RC::SUCCESS;
-  std::string clog_file_path = std::string(path) + common::FILE_PATH_SPLIT_STR + CLOG_FILE_NAME;
-  rc = log_file_->create_file(clog_file_path.c_str());
-  if (rc == RC::SUCCESS) {
-    log_file_->open_file();
-    update_log_fhd(0);
-  } else if (rc == RC::FILE_EXIST) {
-    log_file_->open_file(clog_file_path.c_str());
-    log_file_->read_at(0, CLOG_BLOCK_SIZE, (char *)&log_fhd_);
-  }
+  // log_file_ = new PersistHandler();
+  // RC rc = RC::SUCCESS;
+  // std::string clog_file_path = std::string(path) + common::FILE_PATH_SPLIT_STR + CLOG_FILE_NAME;
+  // rc = log_file_->create_file(clog_file_path.c_str());
+  // if (rc == RC::SUCCESS) {
+  //   log_file_->open_file();
+  //   update_log_fhd(0);
+  // } else if (rc == RC::FILE_EXIST) {
+  //   log_file_->open_file(clog_file_path.c_str());
+  //   log_file_->read_at(0, CLOG_BLOCK_SIZE, (char *)&log_fhd_);
+  // }
 }
 
 CLogFile::~CLogFile()
 {
-  if (log_file_) {
-    log_file_->close_file();
-    delete log_file_;
-  }
+  // if (log_file_) {
+    // log_file_->close_file();
+    // delete log_file_;
+  // }
 }
 
 RC CLogFile::update_log_fhd(int32_t current_file_lsn)
@@ -428,14 +428,14 @@ RC CLogManager::clog_gen_record(CLogType flag, int32_t trx_id, CLogRecord *&log_
 RC CLogManager::clog_append_record(CLogRecord *log_rec)
 {
   RC rc = RC::SUCCESS;
-  int start_offset = 0;
-  rc = log_buffer_->append_log_record(log_rec, start_offset);
-  if (rc == RC::LOGBUF_FULL || log_rec->get_log_type() == REDO_MTR_COMMIT) {
-    clog_sync();
-    if (start_offset != log_rec->get_logrec_len()) {  // 当前日志记录还没写完
-      log_buffer_->append_log_record(log_rec, start_offset);
-    }
-  }
+  // int start_offset = 0;
+  // rc = log_buffer_->append_log_record(log_rec, start_offset);
+  // if (rc == RC::LOGBUF_FULL || log_rec->get_log_type() == REDO_MTR_COMMIT) {
+  //   clog_sync();
+  //   if (start_offset != log_rec->get_logrec_len()) {  // 当前日志记录还没写完
+  //     log_buffer_->append_log_record(log_rec, start_offset);
+  //   }
+  // }
   delete log_rec;  // NOTE: 单元测试需要注释该行
   return rc;
 }
@@ -443,13 +443,13 @@ RC CLogManager::clog_append_record(CLogRecord *log_rec)
 RC CLogManager::clog_sync()
 {
   RC rc = RC::SUCCESS;
-  rc = log_buffer_->flush_buffer(log_file_);
+  // rc = log_buffer_->flush_buffer(log_file_);
   return rc;
 }
 
 RC CLogManager::recover()
 {
-  log_file_->recover(log_mtr_mgr_, log_buffer_);
+  // log_file_->recover(log_mtr_mgr_, log_buffer_);
   return RC::SUCCESS;
 }
 
