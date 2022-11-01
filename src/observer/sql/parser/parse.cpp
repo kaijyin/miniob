@@ -63,13 +63,14 @@ void value_init_date(Value *value, const char *v)
   value->type = DATE;
   int year, month, day;
   sscanf(v, "%d-%d-%d", &year, &month, &day);
-  int res = year * 10000 + month * 100 + day;
+  int res = (year - 1990) * 13 * 32 + month * 32 + day;
   /* 只用两字节存date */
   // value->data = reform_int(res, 2);
-  if(year<=1990||year>=2000){
-    exit(0);
-  }
+  // if(year<=1990||year>=2000){
+  //   exit(0);
+  // }
   value->data = (char *)malloc(sizeof(int));
+  /* 需要考虑大小端 */
   memcpy(value->data, &res, sizeof(int));
 }
 void value_destroy(Value *value)

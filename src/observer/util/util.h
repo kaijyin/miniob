@@ -18,4 +18,6 @@ See the Mulan PSL v2 for more details. */
 
 std::string double2string(double v);
 
-void *reform_int(int val, int byte);
+/* 从p的第offset(比特)开始放bit比特*/
+void encode_val(void *p, int offset, void* val, int bit);
+void decode_val(const void *p, int offset, void* val, int bit);

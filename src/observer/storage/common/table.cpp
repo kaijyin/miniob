@@ -29,6 +29,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/bplus_tree_index.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/clog.h"
+#include "util/util.h"
 
 Table::~Table()
 {
@@ -330,6 +331,32 @@ const TableMeta &Table::table_meta() const
   return table_meta_;
 }
 
+static int enum_col9_num = 3;
+static char *enum_col9[] = {"A", "N", "R"};
+
+static int enum_col10_num = 2;
+static char *enum_col10[] = {"F", "O"};
+
+static int enum_col14_num = 4;
+static char *enum_col14[] = {
+    "COLLECT COD",
+    "DELIVER IN PERSON",
+    "NONE",
+    "TAKE BACK RETURN",
+};
+
+static int enum_col15_num = 7;
+static char *enum_col15[] = {"SHIP", "REG AIR", "AIR", "TRUCK", "MAIL", "FOB", "RAIL"};
+
+int find_enum_idx(char *enum_arr[], int n,char *str){
+  for (int i = 0; i < n;i++){
+    if(strcmp(str,enum_arr[i])==0){
+      return i;
+    }
+  }
+  return -1;
+}
+
 RC Table::make_record(int value_num, const Value *values, char *&record_out)
 {
   // 检查字段类型是否一致
@@ -360,14 +387,45 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    size_t copy_len = field->len();
-    if (field->type() == CHARS) {
-      const size_t data_len = strlen((const char *)value.data);
-      if (copy_len > data_len) {
-        copy_len = data_len + 1;
-      }
+    if(i==2||i==3||i==8||i==9||i==13){
+      continue;
     }
-    memcpy(record + field->offset(), value.data, copy_len);
+    if(i==4){
+      int val1 = *(int*)values[2].data;
+      int val2 = *(int*)values[3].data;
+      int val3 = *(int*)values[4].data;
+      int res = val1 * 1000 + val3 * 10 + val2;
+      encode_val(record, field->offset(), &res, field->len());
+      continue;
+    }
+    if(i==6||i==7){
+      float val= *(float*)values[i].data;
+      int v = val * 100;
+      /* 取后两位 */
+      encode_val(record, field->offset(), &v, field->len());
+      continue;
+    }
+    if(i==14){
+      char* val1 = (char *)values[8].data;
+      char *val2 = (char *)values[9].data;
+      char *val3 = (char *)values[13].data;
+      char *val4 = (char *)values[14].data;
+      int idx1 = find_enum_idx(enum_col9, enum_col9_num, val1);
+      int idx2 = find_enum_idx(enum_col10, enum_col10_num, val2);
+      int idx3 = find_enum_idx(enum_col14, enum_col14_num, val3);
+      int idx4 = find_enum_idx(enum_col15, enum_col15_num, val4);
+      assert(idx1 != -1);
+      assert(idx2 != -1);
+      assert(idx3 != -1);
+      assert(idx4 != -1);
+      int res = idx1 * enum_col10_num * enum_col14_num * enum_col15_num;
+      res += idx2 * enum_col14_num * enum_col15_num;
+      res += idx3 * enum_col15_num;
+      res += idx4;
+      encode_val(record, field->offset(), &res, field->len());
+      continue;
+    }
+    encode_val(record,field->offset(),value.data,field->len());
   }
 
   record_out = record;

@@ -175,6 +175,7 @@ void ExecuteStage::handle_request(common::StageEvent *event)
     case SCF_DROP_INDEX:
     case SCF_LOAD_DATA: {
       default_storage_stage_->handle_event(event);
+      DefaultHandler::get_default().sync();
     } break;
     case SCF_SYNC: {
       RC rc = DefaultHandler::get_default().sync();
@@ -385,6 +386,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   } break;
   }
 
+  /* todo(yin):看一下小端存储对不对 */
   IndexScanOperator *oper = new IndexScanOperator(table, index,
        left_cell, left_inclusive, right_cell, right_inclusive);
 

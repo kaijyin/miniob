@@ -194,26 +194,7 @@ void DefaultStorageStage::callback_event(StageEvent *event, CallbackContext *con
   return;
 }
 
-static int enum_num = 11;
-static char *enum_str[] = {"COLLECT COD",
-    "DELIVER IN PERSON",
-    "NONE",
-    "TAKE BACK RETURN",
-    "SHIP",
-    "REG AIR",
-    "AIR",
-    "TRUCK",
-    "MAIL",
-    "FOB",
-    "RAIL"};
-static bool check_10col(const char *str){
-  for (int i = 0; i < enum_num;i++){
-    if(strcmp(str,enum_str[i])==0){
-      return true;
-    }
-  }
-  return false;
-}
+
 /**
  * 从文件中导入数据时使用。尝试向表中插入解析后的一行数据。
  * @param table  要导入的表
@@ -234,9 +215,6 @@ RC insert_record_from_file(
   }
 
   RC rc = RC::SUCCESS;
-  static int tick = 0;
-  tick++;
-  int res = true;
   std::stringstream deserialize_stream;
   for (int i = 0; i < field_num && RC::SUCCESS == rc; i++) {
     const FieldMeta *field = table->table_meta().field(i + sys_field_num);
@@ -253,13 +231,6 @@ RC insert_record_from_file(
 
         int int_value;
         deserialize_stream >> int_value;
-        if(i==2)
-          res &= int_value <= 10000;
-        if(i==3)
-          res &= int_value <= 10;
-        if(i==4)
-          res &= int_value <= 100;
-        
         if (!deserialize_stream || !deserialize_stream.eof()) {
           errmsg << "need an integer but got '" << file_values[i] << "' (field index:" << i << ")";
 
@@ -278,8 +249,6 @@ RC insert_record_from_file(
 
         float float_value;
         deserialize_stream >> float_value;
-        if(i==6||i==7)
-          res &= float_value >= 0 && float_value < 0.11;
         if (!deserialize_stream || !deserialize_stream.eof()) {
           errmsg << "need a float number but got '" << file_values[i] << "'(field index:" << i << ")";
           rc = RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -288,12 +257,6 @@ RC insert_record_from_file(
         }
       } break;
       case CHARS: {
-        if(i==8)
-          res &= file_value[0] == 'A' || file_value[0] == 'N' || file_value[0] == 'R';
-        if (i == 9)
-          res &= file_value[0] == 'F' || file_value[0] == 'O';
-        if(i==10||i==11)
-          res &= check_10col(file_value.c_str());
         value_init_string(&record_values[i], file_value.c_str());
       } break;
       default: {
@@ -301,10 +264,6 @@ RC insert_record_from_file(
         rc = RC::SCHEMA_FIELD_TYPE_MISMATCH;
       } break;
     }
-  }
-  if(!res){
-    // LOG_ERROR("%d", tick);
-    exit(0);
   }
   if (RC::SUCCESS == rc) {
     rc = table->insert_record(nullptr, field_num, record_values.data());

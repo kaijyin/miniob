@@ -79,26 +79,39 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
   // 当前实现下，所有类型都是4字节对齐的，所以不再考虑字节对齐问题
   // int field_offset = sys_fields_.back().offset() + sys_fields_.back().len();
-  int field_offset = 0;
 
+  int field_offset = 0;
   for (int i = 0; i < field_num; i++) {
     const AttrInfo &attr_info = attributes[i];
     AttrType attr_type = attr_info.type;
-    int length = attr_info.length;
-    if (10 <= i && i <= 12) {
-      attr_type = DATE;
+    int length = attr_info.length * 8;
+    if (i == 2 || i == 3 || i == 4) {
+      length = 3 * 8;
+      field_offset = 2 * 4 * 8;
+    } else if (i == 6 || i == 7) {
       length = 4;
+    } else if (i == 8 || i == 9 || i == 13 || i == 14) {
+      /* 枚举的全放一起*/
+      length = 1 * 8;
+      field_offset = 16 * 8;
+    } else if (10 <= i && i <= 12) {
+      attr_type = DATE;
+      /* 这里需要一个特殊的DATE type,因为索引需要用到 */
+      length = 2 * 8;
+    } else if (i == 15) {
+      /* 因为13offset往回设了,所以这里需要重新设 */
+      field_offset = 23 * 8;
     }
     rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_type, field_offset, length, true);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
       return rc;
     }
-
     field_offset += length;
   }
 
-  record_size_ = field_offset;
+  record_size_ = field_offset / 8;
+  assert(record_size_ == 67);
 
   name_ = name;
   LOG_INFO("Sussessfully initialized table meta. table name=%s", name);
@@ -270,12 +283,13 @@ int TableMeta::deserialize(std::istream &is)
     }
   }
 
-  std::sort(
-      fields.begin(), fields.end(), [](const FieldMeta &f1, const FieldMeta &f2) { return f1.offset() < f2.offset(); });
+  // std::sort(
+  //     fields.begin(), fields.end(), [](const FieldMeta &f1, const FieldMeta &f2) { return f1.offset() < f2.offset(); });
 
   name_.swap(table_name);
   fields_.swap(fields);
-  record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+  // record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
+  record_size_ = (fields_.back().offset() + fields_.back().len()) / 8;
 
   const Json::Value &indexes_value = table_value[FIELD_INDEXES];
   if (!indexes_value.empty()) {

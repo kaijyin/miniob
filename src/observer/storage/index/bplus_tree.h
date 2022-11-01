@@ -25,6 +25,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/default/disk_buffer_pool.h"
 #include "sql/parser/parse_defs.h"
 #include "util/comparator.h"
+#include "util/util.h"
 
 #define EMPTY_RID_PAGE_NUM -1
 #define EMPTY_RID_SLOT_NUM -1
@@ -44,9 +45,14 @@ public:
 
   int operator()(const char *v1, const char *v2) const {
     switch (attr_type_) {
-    case DATE:
+    case DATE:{
+      int val1 = 0, val2 = 0;
+      decode_val(v1, 0, &val1, 16);
+      decode_val(v2, 0, &val2, 16);
+      return compare_int(&val1, &val2);
+    } break;
     case INTS: {
-        return compare_int((void *)v1, (void *)v2);
+      return compare_int((void *)v1, (void *)v2);
     } break;
     case FLOATS: {
       return compare_float((void *)v1, (void *)v2);

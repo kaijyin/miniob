@@ -30,10 +30,42 @@ std::string double2string(double v)
 
   return std::string(buf, len);
 }
-void *reform_int(int val, int byte){
-  char *p = (char *)&val;
-  p += 4 - byte;
-  char *data = (char*)malloc(byte);
-  memcpy(data, p, byte);
-  return data;
+
+void encode_val(void *ptr, int offset,void* v,int bit){
+  /* 记得初始化p为0 */
+  char *p = (char *)ptr;
+  p += offset / 8;
+  offset %= 8;
+  char *val = (char *)v;
+  if (offset == 0 && bit % 8 == 0) {
+    /* 整的byte */
+    memcpy(p, val, bit / 8);
+    return;
+  }
+  int now = 0;
+  while (now <bit) {
+    int cur_bit = (val[now / 8] & (1 << (now % 8))) == 0 ? 0 : 1;
+    p[offset / 8] |= (cur_bit << (offset % 8));
+    offset++;
+    now++;
+  }
+}
+
+void decode_val(const void *ptr, int offset, void *v, int bit){
+  /* 记得初始化v为0 */
+  char *p = (char *)ptr;
+  p += offset / 8;
+  offset %= 8;
+  char *val = (char *)v;
+  if (offset == 0 && bit % 8 == 0) {
+    memcpy(val, p, bit / 8);
+    return;
+  }
+  int now = 0;
+  while (now < bit) {
+    int cur_bit = ((p[offset/8]) & (1 << (offset%8))) == 0 ? 0 : 1;
+    val[now / 8] |= cur_bit << (now % 8);
+    offset++;
+    now++;
+  }
 }

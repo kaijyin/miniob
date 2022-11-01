@@ -32,7 +32,7 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, co
 
   Index::init(index_meta, field_meta);
 
-  RC rc = index_handler_.create(file_name, field_meta.type(), field_meta.len());
+  RC rc = index_handler_.create(file_name, field_meta.type(), field_meta.len() / 8);
   if (RC::SUCCESS != rc) {
     LOG_WARN("Failed to create index_handler, file_name:%s, index:%s, field:%s, rc:%s",
         file_name,
@@ -90,7 +90,7 @@ RC BplusTreeIndex::close()
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
-  return index_handler_.insert_entry(record + field_meta_.offset(), rid);
+  return index_handler_.insert_entry(record + (field_meta_.offset() / 8), rid);
 }
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
