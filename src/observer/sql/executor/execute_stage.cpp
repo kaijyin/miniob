@@ -30,6 +30,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 #include "sql/operator/table_scan_operator.h"
 #include "sql/operator/index_scan_operator.h"
+#include "sql/operator/binary_index_scan_operator.h"
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
@@ -46,6 +47,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/clog.h"
+#include "util/util.h"
 
 using namespace common;
 
@@ -269,14 +271,11 @@ void tuple_to_string(std::ostream &os, const Tuple &tuple)
   }
 }
 
-IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
+Operator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
 {
   const std::vector<FilterUnit *> &filter_units = filter_stmt->filter_units();
   if (filter_units.empty() ) {
     return nullptr;
-  }
-  if(filter_units.size()!=1){
-    exit(0);
   }
   // 在所有过滤条件中，找到字段与值做比较的条件，然后判断字段是否可以使用索引
   // 如果是多列索引，这里的处理需要更复杂。
@@ -318,7 +317,6 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   Expression *right = better_filter->right();
   CompOp comp = better_filter->comp();
   if (left->type() == ExprType::VALUE && right->type() == ExprType::FIELD) {
-    exit(0);
     std::swap(left, right);
     switch (comp) {
     case EQUAL_TO:    { comp = EQUAL_TO; }    break;
@@ -388,6 +386,11 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   default: {
     LOG_WARN("should not happen. comp=%d", comp);
   } break;
+  }
+
+  if(index->type() == IndexType::BinarySearch){
+    int key = *(int *)left_cell->data();
+    return {new BinIndexScanOperator(table, index, key)};
   }
 
   /* todo(yin):看一下小端存储对不对 */

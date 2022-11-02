@@ -27,6 +27,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/meta_util.h"
 #include "storage/index/index.h"
 #include "storage/index/bplus_tree_index.h"
+#include "storage/index/binary_search_index.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/clog.h"
 #include "util/util.h"
@@ -162,7 +163,12 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
       return RC::GENERIC_ERROR;
     }
 
-    BplusTreeIndex *index = new BplusTreeIndex();
+    Index *index = nullptr;
+    if(strcmp(index_meta->name(),"I_L_ORDERKEY")==0){
+      index = new BinarySearchIndex();
+    } else {
+      index = new BplusTreeIndex();
+    }
     std::string index_file = table_index_file(base_dir, name(), index_meta->name());
     rc = index->open(index_file.c_str(), *index_meta, *field_meta);
     if (rc != RC::SUCCESS) {
@@ -222,6 +228,7 @@ RC Table::rollback_insert(Trx *trx, const RID &rid)
   rc = record_handler_->delete_record(&rid);
   return rc;
 }
+
 
 RC Table::insert_record(Trx *trx, Record *record)
 {
@@ -635,7 +642,12 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   // 创建索引相关数据
-  BplusTreeIndex *index = new BplusTreeIndex();
+  Index *index = nullptr;
+  if(strcmp(index_name,"I_L_ORDERKEY")==0){
+    index = new BinarySearchIndex();
+  }else{
+    index = new BplusTreeIndex();
+  }
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);
   rc = index->create(index_file.c_str(), new_index_meta, *field_meta);
   if (rc != RC::SUCCESS) {

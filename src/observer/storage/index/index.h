@@ -23,6 +23,10 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/field_meta.h"
 #include "storage/record/record_manager.h"
 
+enum class IndexType {
+  BplusTree,
+  BinarySearch,
+};
 class IndexDataOperator {
 public:
   virtual ~IndexDataOperator() = default;
@@ -43,6 +47,10 @@ public:
     return index_meta_;
   }
 
+  virtual RC create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) = 0;
+  virtual RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) = 0;
+  virtual RC close() = 0;
+
   virtual RC insert_entry(const char *record, const RID *rid) = 0;
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
 
@@ -50,6 +58,8 @@ public:
 				       const char *right_key, int right_len, bool right_inclusive) = 0;
 
   virtual RC sync() = 0;
+  virtual IndexType type() = 0;
+  virtual std::pair<RC, std::vector<int>> find_pages(int key) const = 0;
 
 protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);

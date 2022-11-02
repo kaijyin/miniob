@@ -16,7 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/lang/bitmap.h"
 #include "storage/common/condition_filter.h"
-
+#include "util/util.h"
 using namespace common;
 
 int align8(int size)
@@ -197,6 +197,49 @@ RC RecordPageHandler::insert_record(const char *data, RID *rid)
   return RC::SUCCESS;
 }
 
+/* only for sequence insert */
+std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(int key){
+  int right = page_header_->record_num - 1;
+  int left = 0;
+  while(left<right){
+    int mid = (left + right) >> 1;
+    char *record_data = get_record_data(mid);
+    int val = 0;
+    decode_val(record_data, 0, &val, sizeof(val) * 8);
+    if (val < key) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+  char *record_data = get_record_data(left);
+  int val = 0;
+  decode_val(record_data, 0, &val, sizeof(val) * 8);
+  if (val != key) {
+    /* 不存在这个key的tuple */
+    return {RC::SUCCESS, {}};
+  }
+  std::vector<Record> records;
+  Record record;
+  record.set_data(record_data);
+  record.set_rid(RID(get_page_num(), left));
+  records.push_back(record);
+  left++;
+  while (left < page_header_->record_num) {
+    char *record_data = get_record_data(left);
+    int val = 0;
+    decode_val(record_data, 0, &val, sizeof(val) * 8);
+    if (val != key) {
+      break;
+    } else {
+      record.set_data(record_data);
+      record.set_rid(RID(get_page_num(), left));
+      records.push_back(record);
+    }
+    left++;
+  }
+  return {RC::SUCCESS, records};
+}
 RC RecordPageHandler::recover_insert_record(const char *data, RID *rid)
 {
   if (page_header_->record_num == page_header_->record_capacity) {
@@ -446,6 +489,27 @@ RC RecordFileHandler::delete_record(const RID *rid)
   }
   return rc;
 }
+
+std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(int key, const std::vector<int> pages){
+  RC ret = RC::SUCCESS;
+  std::vector<Record> result;
+  for (auto page_num : pages) {
+
+    RecordPageHandler page_handler;
+    if ((ret != page_handler.init(*disk_buffer_pool_, page_num)) != RC::SUCCESS) {
+      LOG_ERROR("Failed to init record page handler.page number=%d", page_num);
+      return {ret, {}};
+    }
+    auto res = page_handler.get_records(key);
+    if (res.first != RC::SUCCESS) {
+      return {res.first, {}};
+    }
+    for (auto&record:res.second){
+      result.push_back(record);
+    }
+  }
+  return {RC::SUCCESS, result};
+};
 
 RC RecordFileHandler::get_record(const RID *rid, Record *rec)
 {

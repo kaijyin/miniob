@@ -23,9 +23,9 @@ public:
   BplusTreeIndex() = default;
   virtual ~BplusTreeIndex() noexcept;
 
-  RC create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
-  RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta);
-  RC close();
+  RC create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) override;
+  RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) override;
+  RC close() override;
 
   RC insert_entry(const char *record, const RID *rid) override;
   RC delete_entry(const char *record, const RID *rid) override;
@@ -35,8 +35,13 @@ public:
    */
   IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive,
 			       const char *right_key, int right_len, bool right_inclusive) override;
-
+  std::pair<RC, std::vector<int>> find_pages(int key) const override{
+    return {RC::UNIMPLENMENT, {}};
+  }
   RC sync() override;
+  IndexType type()override{
+    return IndexType::BplusTree;
+  }
 
 private:
   bool inited_ = false;
