@@ -58,8 +58,8 @@ void TupleCell::to_string(std::ostream &os) const
 
   if(idx_==6||idx_==7){
     decode_val(data_, offset_, &val, length_);
-    sprintf(temp, "0.%02d", val);
-    os << temp;
+    double v = (double)(val) / 100.0;
+    os << double2string(v);
     return;
   }
 

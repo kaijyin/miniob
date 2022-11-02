@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <string>
 #include <sstream>
+#include <fstream>
 
 #include "execute_stage.h"
 
@@ -446,6 +447,8 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     tuple_to_string(ss, *tuple);
     ss << std::endl;
   }
+  // std::ofstream out(std::string("scan_res.txt"));
+  // out << ss.str();
 
   if (rc != RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
