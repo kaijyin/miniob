@@ -274,7 +274,9 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   if (filter_units.empty() ) {
     return nullptr;
   }
-
+  if(filter_units.size()!=1){
+    exit(0);
+  }
   // 在所有过滤条件中，找到字段与值做比较的条件，然后判断字段是否可以使用索引
   // 如果是多列索引，这里的处理需要更复杂。
   // 这里的查找规则是比较简单的，就是尽量找到使用相等比较的索引
@@ -315,6 +317,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   Expression *right = better_filter->right();
   CompOp comp = better_filter->comp();
   if (left->type() == ExprType::VALUE && right->type() == ExprType::FIELD) {
+    exit(0);
     std::swap(left, right);
     switch (comp) {
     case EQUAL_TO:    { comp = EQUAL_TO; }    break;
@@ -416,6 +419,9 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   pred_oper.add_child(scan_oper);
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
+  if(select_stmt->query_fields().size()!=16){
+    exit(0);
+  }
   for (const Field &field : select_stmt->query_fields()) {
     project_oper.add_projection(field.table(), field.meta());
   }

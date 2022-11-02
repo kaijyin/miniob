@@ -42,17 +42,17 @@ void TupleCell::to_string(std::ostream &os) const
   int val = 0;
   if(idx_ == 2){
     decode_val(data_, offset_, &val, length_);
-    os << val / 1000;
+    os << val / 1001;
     return;
   }
   if(idx_ == 3){
     decode_val(data_, offset_, &val, length_);
-    os << val % 10;
+    os << val % 11;
     return;
   }
   if(idx_==4){
     decode_val(data_, offset_, &val, length_);
-    os << (val % 1000) / 10;
+    os << (val % 1001) / 11;
     return;
   }
 

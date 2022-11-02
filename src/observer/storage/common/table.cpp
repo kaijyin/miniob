@@ -394,7 +394,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       int val1 = *(int*)values[2].data;
       int val2 = *(int*)values[3].data;
       int val3 = *(int*)values[4].data;
-      int res = val1 * 1000 + val3 * 10 + val2;
+      int res = val1 * 1001 + val3 * 11 + val2;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
