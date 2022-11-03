@@ -119,8 +119,6 @@ public:
     }
     out.flush();
     out.close();
-    /* 建完就清除内存 */
-    hash_rids_.clear();
     return RC::SUCCESS;
   }
   IndexType type()override{

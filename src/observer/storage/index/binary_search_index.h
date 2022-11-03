@@ -101,7 +101,6 @@ public:
     }
     out.flush();
     out.close();
-    page_max_keys_.clear();
     return RC::SUCCESS;
   }
   IndexType type()override{
