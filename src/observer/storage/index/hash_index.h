@@ -98,7 +98,7 @@ public:
      int key = 0;
      decode_val(left_key, 0, &key, field_meta_.len());
      if(key>=hash_rids_.size()){
-       exit(0);
+       return new HashIndexScanner({});
      }
      return new HashIndexScanner(hash_rids_[key]);
    }
