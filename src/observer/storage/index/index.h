@@ -26,6 +26,7 @@ See the Mulan PSL v2 for more details. */
 enum class IndexType {
   BplusTree,
   BinarySearch,
+  Hash,
 };
 class IndexDataOperator {
 public:
@@ -59,7 +60,7 @@ public:
 
   virtual RC sync() = 0;
   virtual IndexType type() = 0;
-  virtual std::pair<RC, std::vector<int>> find_pages(int key) const = 0;
+  virtual std::pair<RC,std::vector<PageNum>> find_pages(int key) const = 0;
 
 protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);

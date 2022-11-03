@@ -28,6 +28,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/index.h"
 #include "storage/index/bplus_tree_index.h"
 #include "storage/index/binary_search_index.h"
+#include "storage/index/hash_index.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/clog.h"
 #include "util/util.h"
@@ -166,7 +167,9 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
     Index *index = nullptr;
     if(strcmp(index_meta->name(),"I_L_ORDERKEY")==0){
       index = new BinarySearchIndex();
-    } else {
+    } else if(strcmp(index_meta->name(),"I_L_SHIPDATE")==0){
+      index = new HashIndex();
+    }else{
       index = new BplusTreeIndex();
     }
     std::string index_file = table_index_file(base_dir, name(), index_meta->name());
@@ -643,9 +646,11 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 
   // 创建索引相关数据
   Index *index = nullptr;
-  if(strcmp(index_name,"I_L_ORDERKEY")==0){
+  if (strcmp(index_name, "I_L_ORDERKEY") == 0) {
     index = new BinarySearchIndex();
-  }else{
+  } else if (strcmp(index_name, "I_L_SHIPDATE") == 0) {
+    index = new HashIndex();
+  } else {
     index = new BplusTreeIndex();
   }
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);

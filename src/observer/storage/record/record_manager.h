@@ -130,7 +130,7 @@ public:
    */
   RC get_record(const RID *rid, Record *rec);
 
-  std::pair < RC, std::vector<Record>> get_records(int key, const std::vector<int> pages);
+  std::pair < RC, std::vector<Record>> get_records(int key, const std::vector<PageNum> pages);
   template <class RecordUpdater>  // 改成普通模式, 不使用模板
   RC update_record_in_place(const RID *rid, RecordUpdater updater)
   {

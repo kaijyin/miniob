@@ -35,7 +35,7 @@ public:
    */
   IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive,
 			       const char *right_key, int right_len, bool right_inclusive) override;
-  std::pair<RC, std::vector<int>> find_pages(int key) const override{
+  std::pair<RC,std::vector<PageNum>> find_pages(int key) const override{
     return {RC::UNIMPLENMENT, {}};
   }
   RC sync() override;

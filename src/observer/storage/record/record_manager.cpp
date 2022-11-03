@@ -490,7 +490,7 @@ RC RecordFileHandler::delete_record(const RID *rid)
   return rc;
 }
 
-std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(int key, const std::vector<int> pages){
+std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(int key, const std::vector<PageNum> pages){
   RC ret = RC::SUCCESS;
   std::vector<Record> result;
   for (auto page_num : pages) {
