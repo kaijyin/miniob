@@ -14,9 +14,11 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <string>
 #include <iostream>
 #include "storage/common/table.h"
 #include "storage/common/field_meta.h"
+#include "storage/default/huffman.h"
 
 class TupleCell
 {
@@ -40,6 +42,9 @@ public:
   void set_idx(int idx){
     this->idx_ = idx;
   }
+  void set_huf(Huffman*huf){
+    huf_ = huf;
+  }
   void to_string(std::ostream &os) const;
 
   int compare(const TupleCell &other) const;
@@ -60,11 +65,12 @@ public:
   {
     return attr_type_;
   }
-
+  
 private:
   AttrType attr_type_ = UNDEFINED;
   int length_ = -1;
   char *data_ = nullptr; // real data. no need to move to field_meta.offset
   int offset_ = -1;
   int idx_ = -1;
+  Huffman *huf_;
 };

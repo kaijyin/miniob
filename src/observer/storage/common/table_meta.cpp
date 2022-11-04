@@ -27,7 +27,7 @@ static const Json::StaticString FIELD_INDEXES("indexes");
 std::vector<FieldMeta> TableMeta::sys_fields_;
 
 TableMeta::TableMeta(const TableMeta &other)
-    : name_(other.name_), fields_(other.fields_), indexes_(other.indexes_), record_size_(other.record_size_)
+    : name_(other.name_), fields_(other.fields_), indexes_(other.indexes_)
 {}
 
 void TableMeta::swap(TableMeta &other) noexcept
@@ -35,7 +35,6 @@ void TableMeta::swap(TableMeta &other) noexcept
   name_.swap(other.name_);
   fields_.swap(other.fields_);
   indexes_.swap(other.indexes_);
-  std::swap(record_size_, other.record_size_);
 }
 
 RC TableMeta::init_sys_fields()
@@ -109,9 +108,6 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
     }
     field_offset += length;
   }
-
-  record_size_ = field_offset / 8;
-  assert(record_size_ == 67);
 
   name_ = name;
   LOG_INFO("Sussessfully initialized table meta. table name=%s", name);
@@ -200,10 +196,6 @@ int TableMeta::index_num() const
   return indexes_.size();
 }
 
-int TableMeta::record_size() const
-{
-  return record_size_;
-}
 
 int TableMeta::serialize(std::ostream &ss) const
 {
@@ -288,8 +280,6 @@ int TableMeta::deserialize(std::istream &is)
 
   name_.swap(table_name);
   fields_.swap(fields);
-  // record_size_ = fields_.back().offset() + fields_.back().len() - fields_.begin()->offset();
-  record_size_ = (fields_.back().offset() + fields_.back().len()) / 8;
 
   const Json::Value &indexes_value = table_value[FIELD_INDEXES];
   if (!indexes_value.empty()) {

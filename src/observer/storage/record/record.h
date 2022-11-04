@@ -96,6 +96,12 @@ public:
   void set_rid(const PageNum page_num, const SlotNum slot_num) { this->rid_.page_num = page_num; this->rid_.slot_num = slot_num; }
   RID & rid() { return rid_; }
   const RID &rid() const { return rid_; };
+  void set_size(int size){
+    length_ = size;
+  }
+  int size(){
+    return length_;
+  }
 
 private:
   RID                            rid_;
@@ -103,4 +109,5 @@ private:
   // the data buffer
   // record will not release the memory
   char *                         data_ = nullptr;
+  int length_ = 0;
 };

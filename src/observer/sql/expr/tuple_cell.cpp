@@ -96,7 +96,13 @@ void TupleCell::to_string(std::ostream &os) const
     os << enum_col15[val];
     return;
   }
-  
+  if(idx_==15){
+    /* 哈夫曼解码 */
+    char *code = data_ + (offset_ / 8);
+    std::string word = huf_->decode(code, length_ / 8);
+    os << word;
+    return;
+  }
   switch (attr_type_) {
   case INTS: {
     decode_val(data_, offset_, &val, length_);

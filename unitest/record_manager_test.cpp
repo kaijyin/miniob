@@ -40,7 +40,7 @@ TEST(test_record_page_handler, test_record_page_handler)
 
   const int record_size = 8;
   RecordPageHandler record_page_handle;
-  rc = record_page_handle.init_empty_page(*bp, frame->page_num(), record_size);
+  rc = record_page_handle.init_empty_page(*bp, frame->page_num());
   ASSERT_EQ(rc, RC::SUCCESS);
 
   RecordPageIterator iterator;

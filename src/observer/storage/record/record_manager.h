@@ -22,11 +22,8 @@ See the Mulan PSL v2 for more details. */
 class ConditionFilter;
 
 struct PageHeader {
+  int32_t last_capacity;        // 用掉的容量
   int32_t record_num;           // 当前页面记录的个数
-  int32_t record_capacity;      // 最大记录个数
-  int32_t record_real_size;     // 每条记录的实际大小
-  int32_t record_size;          // 每条记录占用实际空间大小(可能对齐)
-  int32_t first_record_offset;  // 第一条记录的偏移量
 };
 
 class RecordPageHandler;
@@ -47,7 +44,7 @@ public:
 private:
   RecordPageHandler *record_page_handler_ = nullptr;
   PageNum page_num_ = BP_INVALID_PAGE_NUM;
-  common::Bitmap  bitmap_;
+  // common::Bitmap  bitmap_;
   SlotNum next_slot_num_ = 0;
 };
 
@@ -57,10 +54,12 @@ public:
   ~RecordPageHandler();
   RC init(DiskBufferPool &buffer_pool, PageNum page_num);
   RC recover_init(DiskBufferPool &buffer_pool, PageNum page_num);
-  RC init_empty_page(DiskBufferPool &buffer_pool, PageNum page_num, int record_size);
+  RC init_empty_page(DiskBufferPool &buffer_pool, PageNum page_num);
   RC cleanup();
 
-  RC insert_record(const char *data, RID *rid);
+  RC insert_record(const char *data,int record_size, RID *rid);
+
+
   RC recover_insert_record(const char *data, RID *rid);
   RC update_record(const Record *rec);
 
@@ -84,19 +83,47 @@ public:
 
   PageNum get_page_num() const;
 
-  bool is_full() const;
+  // bool is_full() const;
+  bool can_insert(int record_size) const;
+  int record_num(){
+    if(page_header_==nullptr)
+      return 0;
+    return page_header_->record_num;
+  }
 
 protected:
   char *get_record_data(SlotNum slot_num)
   {
-    return frame_->data() + page_header_->first_record_offset + (page_header_->record_size * slot_num);
+    uint32_t offset = *(uint32_t *)(frame_->data() + 4 + 4 + 4 * slot_num);
+    return (frame_->data() + offset);
+  }
+  uint32_t get_record_size(SlotNum slot_num)
+  {
+    uint32_t pre_offset;
+    if (slot_num == 0) {
+      pre_offset = BP_PAGE_DATA_SIZE;
+    } else {
+      pre_offset = *(uint32_t *)(frame_->data() + 4 + 4 + 4 * (slot_num - 1));
+    }
+    return pre_offset - (*(uint32_t *)(frame_->data() + 4 + 4 + 4 * slot_num));
+  }
+
+  void mark_record(SlotNum slot_num, int record_size){
+    /* 从下往上放 */
+    uint32_t pre_offset;
+    if (slot_num == 0) {
+      pre_offset = BP_PAGE_DATA_SIZE;
+    } else {
+      pre_offset = *(uint32_t *)(frame_->data() + 4 + 4 + 4 * (slot_num - 1));
+    }
+    *(uint32_t *)(frame_->data() + 4 + 4 + 4 * slot_num) = pre_offset - record_size;
   }
 
 protected:
   DiskBufferPool *disk_buffer_pool_ = nullptr;
   Frame *frame_ = nullptr;
   PageHeader *page_header_ = nullptr;
-  char *bitmap_ = nullptr;
+  // char *bitmap_ = nullptr;
 
 private:
   friend class RecordPageIterator;

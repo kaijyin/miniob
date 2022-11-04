@@ -29,7 +29,7 @@ class IndexScanner;
 class RecordDeleter;
 class Trx;
 class CLogManager;
-
+class Huffman;
 // TODO remove the routines with condition
 class Table {
 public:
@@ -100,6 +100,16 @@ private:
 public:
   RC recover_insert_record(Record *record);
 
+  void set_huffman(Huffman*huf){
+    huf_ = huf;
+  }
+  Huffman*get_huffman()const {
+    return huf_;
+  }
+  std::string base_dir(){
+    return base_dir_;
+  }
+
 private:
   friend class RecordUpdater;
   friend class RecordDeleter;
@@ -109,7 +119,7 @@ private:
 
 private:
   RC init_record_handler(const char *base_dir);
-  RC make_record(int value_num, const Value *values, char *&record_out);
+  RC make_record(int value_num, const Value *values, char *&record_out, int &record_size_out);
 
 public:
   Index *find_index(const char *index_name) const;
@@ -122,6 +132,7 @@ private:
   DiskBufferPool *data_buffer_pool_ = nullptr;   /// 数据文件关联的buffer pool
   RecordFileHandler *record_handler_ = nullptr;  /// 记录操作
   std::vector<Index *> indexes_;
+  Huffman *huf_;
 };
 
 #endif  // __OBSERVER_STORAGE_COMMON_TABLE_H__

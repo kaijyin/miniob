@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/lang/string.h"
 #include "storage/default/disk_buffer_pool.h"
+#include "storage/default/huffman.h"
 #include "storage/record/record_manager.h"
 #include "storage/common/condition_filter.h"
 #include "storage/common/meta_util.h"
@@ -32,6 +33,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include "storage/clog/clog.h"
 #include "util/util.h"
+
+using namespace std;
 
 Table::~Table()
 {
@@ -192,6 +195,9 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
   if (clog_manager_ == nullptr) {
     clog_manager_ = clog_manager;
   }
+  huf_ = new Huffman();
+  huf_->deserialize(base_dir_ + "/" + std::string(table_meta_.name()) + ".huf");
+
   return rc;
 }
 
@@ -240,7 +246,7 @@ RC Table::insert_record(Trx *trx, Record *record)
   // if (trx != nullptr) {
   //   trx->init_trx_info(this, *record);
   // }
-  rc = record_handler_->insert_record(record->data(), table_meta_.record_size(), &record->rid());
+  rc = record_handler_->insert_record(record->data(), record->size(), &record->rid());
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
     return rc;
@@ -299,15 +305,16 @@ RC Table::insert_record(Trx *trx, Record *record)
 
 RC Table::recover_insert_record(Record *record)
 {
-  RC rc = RC::SUCCESS;
+  // RC rc = RC::SUCCESS;
 
-  rc = record_handler_->recover_insert_record(record->data(), table_meta_.record_size(), &record->rid());
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
-    return rc;
-  }
+  // rc = record_handler_->recover_insert_record(record->data(), table_meta_.record_size(), &record->rid());
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
+  //   return rc;
+  // }
 
-  return rc;
+  // return rc;
+  return RC::SUCCESS;
 }
 
 RC Table::insert_record(Trx *trx, int value_num, const Value *values)
@@ -318,7 +325,8 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
   }
 
   char *record_data;
-  RC rc = make_record(value_num, values, record_data);
+  int record_size;
+  RC rc = make_record(value_num, values, record_data, record_size);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
     return rc;
@@ -326,6 +334,7 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
 
   Record record;
   record.set_data(record_data);
+  record.set_size(record_size);
   rc = insert_record(trx, &record);
   delete[] record_data;
   return rc;
@@ -367,7 +376,7 @@ int find_enum_idx(char *enum_arr[], int n,char *str){
   return -1;
 }
 
-RC Table::make_record(int value_num, const Value *values, char *&record_out)
+RC Table::make_record(int value_num, const Value *values, char *&record_out,int &record_size_out)
 {
   // 检查字段类型是否一致
   if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
@@ -390,10 +399,10 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   }
 
   // 复制所有字段的值
-  int record_size = table_meta_.record_size();
-  char *record = new char[record_size];
-  memset(record, 0, record_size);
-
+  static const int max_record_size = 80;
+  char *record = new char[max_record_size];
+  memset(record, 0, max_record_size);
+  int record_size = 0;
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
@@ -435,10 +444,18 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
+    if(i==15){
+      /* huffman编码 */
+      std::string code =  huf_->encode((char *)value.data, strlen((char *)value.data));
+      encode_val(record, field->offset(), (void*)code.c_str(), code.size() * 8);
+      record_size = field->offset() / 8 + (int)code.size();
+      continue;
+    }
     encode_val(record,field->offset(),value.data,field->len());
   }
 
   record_out = record;
+  record_size_out = record_size;
   return RC::SUCCESS;
 }
 

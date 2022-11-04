@@ -51,7 +51,6 @@ public:
   const IndexMeta *index(int i) const;
   int index_num() const;
 
-  int record_size() const;
 
 public:
   int serialize(std::ostream &os) const override;
@@ -68,7 +67,6 @@ protected:
   std::vector<FieldMeta> fields_;  // 包含sys_fields
   std::vector<IndexMeta> indexes_;
 
-  int record_size_ = 0;
 
   //@@@ TODO why used static variable?
   static std::vector<FieldMeta> sys_fields_;

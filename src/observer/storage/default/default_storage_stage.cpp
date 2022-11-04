@@ -14,8 +14,10 @@ See the Mulan PSL v2 for more details. */
 
 #include <string.h>
 #include <string>
+#include <unordered_set>
 
 #include "storage/default/default_storage_stage.h"
+#include "storage/default/huffman.h"
 
 #include "common/conf/ini.h"
 #include "common/io/io.h"
@@ -277,6 +279,41 @@ RC insert_record_from_file(
   return rc;
 }
 
+
+void gen_huffman_tree(Huffman * huf,Table *table,const char*file_name){
+
+
+  std::fstream fs;
+  fs.open(file_name, std::ios_base::in | std::ios_base::binary);
+  if (!fs.is_open()) {
+    return;
+  }
+
+  const int sys_field_num = table->table_meta().sys_field_num();
+  const int field_num = table->table_meta().field_num() - sys_field_num;
+
+  std::vector<Value> record_values(field_num);
+  std::string line;
+  int line_num = 0;
+  while (!fs.eof()) {
+    std::getline(fs, line);
+    /* 去掉最后的"|" */
+    line.pop_back();
+    if (common::is_blank(line.c_str())) {
+      continue;
+    }
+    string word = line.substr(line.find_last_of("|") + 1);
+    huf->count(word);
+    line_num++;
+    // if(line_num>=100000){
+    //   /* 最多只学习前100000行,节约时间.*/
+    //   break;
+    // }
+  }
+  huf->stop();
+  fs.close();
+}
+
 std::string DefaultStorageStage::load_data(const char *db_name, const char *table_name, const char *file_name)
 {
 
@@ -287,6 +324,12 @@ std::string DefaultStorageStage::load_data(const char *db_name, const char *tabl
     return result_string.str();
   }
 
+  Huffman *huf = new Huffman();
+  gen_huffman_tree(huf, table, file_name);
+  /* todo(yin) checkpath here */
+  huf->serialize(table->base_dir().append("/").append(std::string(table_name)).append(".huf"));
+  table->set_huffman(huf);
+  
   std::fstream fs;
   fs.open(file_name, std::ios_base::in | std::ios_base::binary);
   if (!fs.is_open()) {
@@ -325,7 +368,6 @@ std::string DefaultStorageStage::load_data(const char *db_name, const char *tabl
     }
   }
   fs.close();
-
   struct timespec end_time;
   clock_gettime(CLOCK_MONOTONIC, &end_time);
   long cost_nano = (end_time.tv_sec - begin_time.tv_sec) * 1000000000L + (end_time.tv_nsec - begin_time.tv_nsec);

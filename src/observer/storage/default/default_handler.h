@@ -144,6 +144,10 @@ public:
 public:
   Db *find_db(const char *dbname) const;
   Table *find_table(const char *dbname, const char *table_name) const;
+  
+  std::string db_dir(){
+    return db_dir_;
+  }
 
   RC sync();
 

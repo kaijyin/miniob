@@ -115,9 +115,14 @@ public:
     const FieldMeta *field_meta = field_expr->field().meta();
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data());
-    cell.set_length(field_meta->len());
+    if(index!=15){
+      cell.set_length(field_meta->len());
+    }else{
+      cell.set_length(this->record_->size() * 8 - field_meta->offset());
+    }
     cell.set_offset(field_meta->offset());
     cell.set_idx(index);
+    cell.set_huf(table_->get_huffman());
     return RC::SUCCESS;
   }
 
