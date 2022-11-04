@@ -17,13 +17,22 @@ using namespace std;
 class Huffman {
 public:
   Huffman(){
-    for (int i = 0; i < 128;i++){
-      words_count_[i] = 0;
+    for (char p = 'a'; p <= 'z';p++){
+      words_count_[p] = 0;
     }
+    words_count_[' '] = 0;
+    words_count_['!'] = 0;
+    words_count_['-'] = 0;
+    words_count_[':'] = 0;
+    words_count_[','] = 0;
+    words_count_['?'] = 0;
+    words_count_[';'] = 0;
+    words_count_['T'] = 0;
+    words_count_['\0'] = 0;
   }
   ~Huffman(); 
   void count(const std::string &str){
-    for(char c:str){
+    for (char c : str) {
       words_count_[c]++;
     }
     /* 每行最后必定要有个\0*/
