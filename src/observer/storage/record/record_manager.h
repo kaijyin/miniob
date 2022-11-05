@@ -95,31 +95,32 @@ public:
 protected:
   char *get_record_data(SlotNum slot_num)
   {
-    uint32_t offset = *(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * slot_num);
+    TupleOffset offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num);
     return (frame_->data() + offset);
   }
   uint32_t get_record_size(SlotNum slot_num)
   {
-    uint32_t pre_offset;
+    TupleOffset pre_offset;
     if (slot_num == 0) {
       pre_offset = BP_PAGE_DATA_SIZE;
     } else {
-      pre_offset = *(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * (slot_num - 1));
+      pre_offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * (slot_num - 1));
     }
-    return pre_offset - (*(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * slot_num));
+    return pre_offset - (*(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num));
   }
   int get_base_key(){
     return page_header_->base_key;
   }
   void mark_record(SlotNum slot_num, int record_size){
     /* 从下往上放 */
-    uint32_t pre_offset;
+    /* 注意tuple offset大小,如果page太大需要调大 */
+    TupleOffset pre_offset;
     if (slot_num == 0) {
       pre_offset = BP_PAGE_DATA_SIZE;
     } else {
-      pre_offset = *(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * (slot_num - 1));
+      pre_offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * (slot_num - 1));
     }
-    *(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * slot_num) = pre_offset - record_size;
+    *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num) = pre_offset - record_size;
   }
 
 protected:

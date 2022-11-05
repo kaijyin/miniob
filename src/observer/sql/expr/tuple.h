@@ -216,9 +216,9 @@ public:
         continue;
       }
       if (i == 5) {
-        float val;
         decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        os << double2string(val);
+        float res = (float)val / 100.0;
+        os << double2string(res);
         continue;
       }
       if (i == 6 || i == 7) {
@@ -230,13 +230,13 @@ public:
 
       if (i == 8) {
         decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val /= enum_col10_num * enum_col14_num * enum_col15_num;
+        val = (val % (enum_col9_num * enum_col14_num)) / enum_col14_num;
         os << enum_col9[val];
         continue;
       }
       if (i == 9) {
         decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = (val % (enum_col10_num * enum_col14_num * enum_col15_num)) / (enum_col14_num * enum_col15_num);
+        val = (val % (enum_col10_num * enum_col15_num)) / enum_col15_num;
         os << enum_col10[val];
         continue;
       }
@@ -250,8 +250,19 @@ public:
         os << temp;
         continue;
       }
-      if (i == 11||i==12) {
+      if (i == 11) {
         decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val /= enum_col9_num * enum_col14_num;
+        int year = 1990 + val / (32 * 13);
+        int month = (val % (32 * 13)) / 32;
+        int day = val % 32;
+        sprintf(temp, "%d-%02d-%02d", year, month, day);
+        os << temp;
+        continue;
+      }
+      if(i==12){
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val /= enum_col10_num * enum_col15_num;
         int year = 1990 + val / (32 * 13);
         int month = (val % (32 * 13)) / 32;
         int day = val % 32;
@@ -261,7 +272,7 @@ public:
       }
       if (i == 13) {
         decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = (val % (enum_col14_num * enum_col15_num)) / enum_col15_num;
+        val = val % enum_col14_num;
         os << enum_col14[val];
         continue;
       }

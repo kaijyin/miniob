@@ -408,7 +408,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    if(i==1||i==2||i==3||i==7||i==8||i==9||i==13){
+    if(i==1||i==2||i==3||i==7||i==8||i==9||i==13||i==14){
       continue;
     }
     if(i==4){
@@ -416,6 +416,12 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       int val2 = *(int*)values[3].data;
       int val3 = *(int*)values[4].data;
       int res = val1 * 11 * 101 + val3 * 11 + val2;
+      encode_val(record, field->offset(), &res, field->len());
+      continue;
+    }
+    if(i==5){
+      float val = *(float *)values[5].data;
+      int res = val * 100;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
@@ -432,6 +438,26 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       float val2 = *(float *)values[7].data;
       int v2 = val2 * 100;
       int res = v1 * 11 + v2;
+      encode_val(record, field->offset(), &res, field->len());
+      continue;
+    }
+    if(i==11){
+      char* val1 = (char *)values[8].data;
+      char *val2 = (char *)values[13].data;
+      int idx1 = find_enum_idx(enum_col9, enum_col9_num, val1);
+      int idx2 = find_enum_idx(enum_col14, enum_col14_num, val2);
+      int val3 = *(int *)values[11].data;
+      int res = val3 * enum_col9_num * enum_col14_num + idx1 * enum_col14_num + idx2;
+      encode_val(record, field->offset(), &res, field->len());
+      continue;
+    }
+    if(i==12){
+      char *val3 = (char *)values[9].data;
+      char *val4 = (char *)values[14].data;
+      int idx3 = find_enum_idx(enum_col10, enum_col10_num, val3);
+      int idx4 = find_enum_idx(enum_col15, enum_col15_num, val4);
+      int val = *(int *)values[12].data;
+      int res = val * enum_col10_num* enum_col15_num + idx3 * enum_col15_num + idx4;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }

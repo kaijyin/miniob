@@ -90,22 +90,28 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
     } else if (i == 2 || i == 3 || i == 4) {
       length = 3 * 8;
       field_offset = 7 * 8;
-    } else if (i == 8 || i == 9 || i == 13 || i == 14) {
+    } else if(i==5){
+      length = 3 * 8;
+      field_offset = 10 * 8;
+    } else if (i == 8 || i == 13 || i == 11) {
+      if(i==11)
+        attr_type = DATE;
       /* 枚举的全放一起*/
-      length = 1 * 8;
-      field_offset = 14 * 8;
+      length = 2 * 8;
+      field_offset = 15 * 8;
     } else if (i == 10 || i == 7) {
       if(i==10)
         attr_type = DATE;
-      field_offset = 8 * 15;
+      field_offset = 8 * 13;
       length = 2 * 8;
-    } else if (11 <= i && i <= 12) {
-      attr_type = DATE;
-      /* 这里需要一个特殊的DATE type,因为索引需要用到 */
+    } else if (i == 12 || i == 9 || i == 14) {
+      if(i==12)
+        attr_type = DATE;
+      field_offset = 17 * 8;
       length = 2 * 8;
     } else if (i == 15) {
       /* 因为13offset往回设了,所以这里需要重新设 */
-      field_offset = 21 * 8;
+      field_offset = 19 * 8;
     }
     rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_type, field_offset, length, true);
     if (rc != RC::SUCCESS) {
