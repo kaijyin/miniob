@@ -250,19 +250,8 @@ public:
         os << temp;
         continue;
       }
-      if (i == 11) {
+      if (i == 11||i==12) {
         decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val /= 32 * 13 * 11;
-        int year = 1990 + val / (32 * 13);
-        int month = (val % (32 * 13)) / 32;
-        int day = val % 32;
-        sprintf(temp, "%d-%02d-%02d", year, month, day);
-        os << temp;
-        continue;
-      }
-      if (i == 12) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val %= 32 * 13 * 11;
         int year = 1990 + val / (32 * 13);
         int month = (val % (32 * 13)) / 32;
         int day = val % 32;

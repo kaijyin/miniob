@@ -102,11 +102,10 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
     } else if (11 <= i && i <= 12) {
       attr_type = DATE;
       /* 这里需要一个特殊的DATE type,因为索引需要用到 */
-      length = 3 * 8;
-      field_offset = 8 * 17;
+      length = 2 * 8;
     } else if (i == 15) {
       /* 因为13offset往回设了,所以这里需要重新设 */
-      field_offset = 20 * 8;
+      field_offset = 21 * 8;
     }
     rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_type, field_offset, length, true);
     if (rc != RC::SUCCESS) {
