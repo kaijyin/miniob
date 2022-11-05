@@ -19,8 +19,10 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/os/os.h"
 #include "common/io/io.h"
+#include "util/util.h"
 
 using namespace common;
+using namespace std;
 
 static const PageNum BP_HEADER_PAGE = 0;
 static const int MEM_POOL_ITEM_NUM = 128;
@@ -137,9 +139,9 @@ BufferPoolIterator::~BufferPoolIterator()
 {}
 RC BufferPoolIterator::init(DiskBufferPool &bp, PageNum start_page /* = 0 */)
 {
-  bitmap_.init(bp.file_header_->bitmap, bp.file_header_->page_count);
+  max_page_num_ = bp.file_header_->page_count;
   if (start_page <= 0) {
-    current_page_num_ = 0;
+    current_page_num_ = BP_HEADER_PAGE + 1;
   } else {
     current_page_num_ = start_page;
   }
@@ -148,21 +150,20 @@ RC BufferPoolIterator::init(DiskBufferPool &bp, PageNum start_page /* = 0 */)
 
 bool BufferPoolIterator::has_next()
 {
-  return bitmap_.next_setted_bit(current_page_num_ + 1) != -1;
+  return current_page_num_ < max_page_num_;
 }
 
 PageNum BufferPoolIterator::next()
 {
-  PageNum next_page = bitmap_.next_setted_bit(current_page_num_ + 1);
-  if (next_page != -1) {
-    current_page_num_ = next_page;
+  if(current_page_num_>=max_page_num_){
+    return BP_INVALID_PAGE_NUM;
   }
-  return next_page;
+  return current_page_num_++;
 }
 
 RC BufferPoolIterator::reset()
 {
-  current_page_num_ = 0;
+  current_page_num_ = BP_HEADER_PAGE + 1;
   return RC::SUCCESS;
 }
 
@@ -286,22 +287,6 @@ RC DiskBufferPool::allocate_page(Frame **frame)
 {
   RC rc = RC::SUCCESS;
 
-  int byte = 0, bit = 0;
-  if ((file_header_->allocated_pages) < (file_header_->page_count)) {
-    // There is one free page
-    for (int i = 0; i < file_header_->page_count; i++) {
-      byte = i / 8;
-      bit = i % 8;
-      if (((file_header_->bitmap[byte]) & (1 << bit)) == 0) {
-        (file_header_->allocated_pages)++;
-        file_header_->bitmap[byte] |= (1 << bit);
-        // TODO,  do we need clean the loaded page's data?
-	hdr_frame_->mark_dirty();
-        return get_this_page(i, frame);
-      }
-    }
-  }
-
   if (file_header_->page_count >= BPFileHeader::MAX_PAGE_NUM) {
     LOG_WARN("file buffer pool is full. page count %d, max page count %d",
 	     file_header_->page_count, BPFileHeader::MAX_PAGE_NUM);
@@ -315,12 +300,7 @@ RC DiskBufferPool::allocate_page(Frame **frame)
     return rc;
   }
 
-  file_header_->allocated_pages++;
   file_header_->page_count++;
-
-  byte = page_num / 8;
-  bit = page_num % 8;
-  file_header_->bitmap[byte] |= (1 << bit);
   hdr_frame_->mark_dirty();
 
   allocated_frame->dirty_ = false;
@@ -330,12 +310,15 @@ RC DiskBufferPool::allocate_page(Frame **frame)
   allocated_frame->clear_page();
   allocated_frame->page_.page_num = file_header_->page_count - 1;
 
+  // auto res = flush_page(*allocated_frame);
   // Use flush operation to extension file
-  if ((rc = flush_page(*allocated_frame)) != RC::SUCCESS) {
-    LOG_WARN("Failed to alloc page %s , due to failed to extend one page.", file_name_.c_str());
-    // skip return false, delay flush the extended page
-    // return tmp;
-  }
+  // if ((rc = res.first) != RC::SUCCESS) {
+  //   LOG_WARN("Failed to alloc page %s , due to failed to extend one page.", file_name_.c_str());
+  //   // skip return false, delay flush the extended page
+  //   // return tmp;
+  // }
+  // file_header_->page_offset[allocated_frame->page_.page_num] =
+  //     file_header_->page_offset[allocated_frame->page_.page_num - 1] + res.second;
 
   *frame = allocated_frame;
   return RC::SUCCESS;
@@ -364,18 +347,17 @@ RC DiskBufferPool::unpin_page(Frame *frame)
  */
 RC DiskBufferPool::dispose_page(PageNum page_num)
 {
-  RC rc = purge_page(page_num);
-  if (rc != RC::SUCCESS) {
-    LOG_INFO("Dispose page %s:%d later, due to this page is being used", file_name_.c_str(), page_num);
+  // RC rc = purge_page(page_num);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_INFO("Dispose page %s:%d later, due to this page is being used", file_name_.c_str(), page_num);
 
-    disposed_pages.insert(page_num);
-    return rc;
-  }
+  //   disposed_pages.insert(page_num);
+  //   return rc;
+  // }
 
-  hdr_frame_->dirty_ = true;
-  file_header_->allocated_pages--;
-  char tmp = 1 << (page_num % 8);
-  file_header_->bitmap[page_num / 8] &= ~tmp;
+  // hdr_frame_->dirty_ = true;
+  // char tmp = 1 << (page_num % 8);
+  // file_header_->bitmap[page_num / 8] &= ~tmp;
   return RC::SUCCESS;
 }
 
@@ -387,7 +369,7 @@ RC DiskBufferPool::purge_frame(PageNum page_num, Frame *buf)
     return RC::LOCKED_UNLOCK;
   }
 
-  if (buf->dirty_) {
+  if (buf->dirty_&&page_num <= file_header_->flush_count) {
     RC rc = flush_page(*buf);
     if (rc != RC::SUCCESS) {
       LOG_WARN("Failed to flush page %d of %d(file desc) during purge page.", buf->page_num(), buf->file_desc_);
@@ -418,22 +400,29 @@ RC DiskBufferPool::purge_page(PageNum page_num)
 
 RC DiskBufferPool::purge_all_pages()
 {
-  std::list<Frame *> used = frame_manager_.find_list(file_desc_);
-  for (std::list<Frame *>::iterator it = used.begin(); it != used.end(); ++it) {
-    Frame *frame = *it;
-    if (frame->pin_count_ > 0) {
-      LOG_WARN("The page has been pinned, file_desc:%d, pagenum:%d, pin_count=%d",
-	       frame->file_desc_, frame->page_.page_num, frame->pin_count_);
-      continue;
-    }
-    if (frame->dirty_) {
-      RC rc = flush_page(*frame);
-      if (rc != RC::SUCCESS) {
-        LOG_ERROR("Failed to flush all pages' of %s.", file_name_.c_str());
-        return rc;
+  bool has_dirty = true; 
+  while(has_dirty){
+    has_dirty = false;
+    std::list<Frame *> used = frame_manager_.find_list(file_desc_);
+    for (std::list<Frame *>::iterator it = used.begin(); it != used.end(); ++it) {
+      Frame *frame = *it;
+      if (frame->pin_count_ > 0) {
+        LOG_WARN("The page has been pinned, file_desc:%d, pagenum:%d, pin_count=%d",
+            frame->file_desc_,
+            frame->page_.page_num,
+            frame->pin_count_);
+        continue;
       }
+      if (frame->dirty_ && frame->page_num() <= file_header_->flush_count) {
+        auto rc = flush_page(*frame);
+        if (rc != RC::SUCCESS) {
+          LOG_ERROR("Failed to flush all pages' of %s.", file_name_.c_str());
+          return rc;
+        }
+        frame_manager_.free(file_desc_, frame->page_.page_num, frame);
+      }
+      has_dirty |= frame->dirty_;
     }
-    frame_manager_.free(file_desc_, frame->page_.page_num, frame);
   }
   return RC::SUCCESS;
 }
@@ -454,23 +443,49 @@ RC DiskBufferPool::check_all_pages_unpinned()
   return RC::SUCCESS;
 }
 
+RC DiskBufferPool::flush_compressed_page(const std::string &data,int64_t offset){
+
+  if (lseek(file_desc_, offset, SEEK_SET) == offset - 1) {
+    LOG_ERROR("Failed to flush page %lld of %d due to failed to seek %s.", offset, file_desc_, strerror(errno));
+    return RC::IOERR_SEEK;
+  }
+
+  if (writen(file_desc_, data.c_str(), data.size()) != 0) {
+    LOG_ERROR("Failed to flush page %lld of %d due to %s.", offset, file_desc_, strerror(errno));
+    return RC::IOERR_WRITE;
+  }
+
+  return RC::SUCCESS;
+}
+
 RC DiskBufferPool::flush_page(Frame &frame)
 {
   // The better way is use mmap the block into memory,
   // so it is easier to flush data to file.
 
   Page &page = frame.page_;
-  s64_t offset = ((s64_t)page.page_num) * sizeof(Page);
-  if (lseek(file_desc_, offset, SEEK_SET) == offset - 1) {
-    LOG_ERROR("Failed to flush page %lld of %d due to failed to seek %s.", offset, file_desc_, strerror(errno));
-    return RC::IOERR_SEEK;
+  s64_t offset = frame.page_num() == BP_HEADER_PAGE ? 0 : file_header_->page_offset[frame.page_num() - 1];
+  string str_in((char *)&page, sizeof(Page)),str_out;
+  if(frame.page_num()==BP_HEADER_PAGE){
+    /* page头不压缩,因为会变 */
+    str_out = str_in;
+  } else {
+    if (Util::StreamCompressString(str_in, str_out) != 0) {
+      LOG_ERROR("compress fail");
+      return RC::ABORT;
+    }
   }
-
-  if (writen(file_desc_, &page, sizeof(Page)) != 0) {
-    LOG_ERROR("Failed to flush page %lld of %d due to %s.", offset, file_desc_, strerror(errno));
-    return RC::IOERR_WRITE;
+  RC rc;
+  if((rc = flush_compressed_page(str_out, offset))!=RC::SUCCESS){
+    return  rc;
   }
   frame.dirty_ = false;
+  /* 更新刷盘的个数 */
+  if(file_header_->flush_count<=page.page_num){
+    file_header_->page_offset[page.page_num] = file_header_->page_offset[page.page_num - 1] + str_out.size();
+    file_header_->flush_count++;
+    hdr_frame_->mark_dirty();
+  }
   LOG_DEBUG("Flush block. file desc=%d, page num=%d", file_desc_, page.page_num);
 
   return RC::SUCCESS;
@@ -479,15 +494,23 @@ RC DiskBufferPool::flush_page(Frame &frame)
 RC DiskBufferPool::flush_all_pages()
 {
   std::list<Frame *> used = frame_manager_.find_list(file_desc_);
-  for (Frame *frame : used) {
-    if(!frame->dirty_){
-      /* 只刷脏页,加快效率 */
-      continue;
-    }
-    RC rc = flush_page(*frame);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to flush all pages");
-      return rc;
+  bool has_dirty_page = true;
+  /* 所有脏页刷盘 */
+  while (has_dirty_page) {
+    has_dirty_page = false;
+    for (Frame *frame : used) {
+      if (!frame->dirty_) {
+        /* 只刷脏页,加快效率 */
+        continue;
+      }
+      if (frame->page_num() <= file_header_->flush_count) {
+        RC rc = flush_page(*frame);
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("failed to flush all pages");
+          return rc;
+        }
+      }
+      has_dirty_page |= frame->dirty_;
     }
   }
   return RC::SUCCESS;
@@ -495,16 +518,16 @@ RC DiskBufferPool::flush_all_pages()
 
 RC DiskBufferPool::recover_page(PageNum page_num)
 {
-  int byte = 0, bit = 0;
-  byte = page_num / 8;
-  bit = page_num % 8;
+  // int byte = 0, bit = 0;
+  // byte = page_num / 8;
+  // bit = page_num % 8;
 
-  if (!(file_header_->bitmap[byte] & (1 << bit))) {
-    file_header_->bitmap[byte] |= (1 << bit);
-    file_header_->allocated_pages++;
-    file_header_->page_count++;
-    hdr_frame_->mark_dirty();
-  }
+  // if (!(file_header_->bitmap[byte] & (1 << bit))) {
+  //   file_header_->bitmap[byte] |= (1 << bit);
+  //   file_header_->allocated_pages++;
+  //   file_header_->page_count++;
+  //   hdr_frame_->mark_dirty();
+  // }
   return RC::SUCCESS;
 }
 
@@ -523,15 +546,14 @@ RC DiskBufferPool::allocate_frame(PageNum page_num, Frame **buffer)
       return RC::NOMEM;
     }
 
-    if (frame->dirty_) {
-      RC rc = bp_manager_.flush_page(*frame);
+    if (frame->dirty_&&frame->page_num()<=file_header_->flush_count) {
+      auto rc = bp_manager_.flush_page(*frame);
       if (rc != RC::SUCCESS) {
         LOG_ERROR("Failed to aclloc block due to failed to flush old block.");
         return rc;
       }
+      frame_manager_.free(frame->file_desc(), frame->page_num(), frame);
     }
-
-    frame_manager_.free(frame->file_desc(), frame->page_num(), frame);
   }
   return RC::INTERNAL;
 }
@@ -542,35 +564,54 @@ RC DiskBufferPool::check_page_num(PageNum page_num)
     LOG_ERROR("Invalid pageNum:%d, file's name:%s", page_num, file_name_.c_str());
     return RC::BUFFERPOOL_INVALID_PAGE_NUM;
   }
-  if ((file_header_->bitmap[page_num / 8] & (1 << (page_num % 8))) == 0) {
-    LOG_ERROR("Invalid pageNum:%d, file's name:%s", page_num, file_name_.c_str());
-    return RC::BUFFERPOOL_INVALID_PAGE_NUM;
-  }
+  // if ((file_header_->bitmap[page_num / 8] & (1 << (page_num % 8))) == 0) {
+  //   LOG_ERROR("Invalid pageNum:%d, file's name:%s", page_num, file_name_.c_str());
+  //   return RC::BUFFERPOOL_INVALID_PAGE_NUM;
+  // }
   return RC::SUCCESS;
 }
 
-RC DiskBufferPool::load_page(PageNum page_num, Frame *frame)
+RC DiskBufferPool::load_compress_page(string &data,int64_t offset,int64_t size)
 {
-  s64_t offset = ((s64_t)page_num) * sizeof(Page);
+  data.resize(size);
   if (lseek(file_desc_, offset, SEEK_SET) == -1) {
-    LOG_ERROR("Failed to load page %s:%d, due to failed to lseek:%s.",
-	      file_name_.c_str(), page_num, strerror(errno));
-
     return RC::IOERR_SEEK;
   }
 
-  int ret = readn(file_desc_, &(frame->page_), sizeof(Page));
+  int ret = readn(file_desc_, (void *)data.data(), size);
   if (ret != 0) {
-    LOG_ERROR("Failed to load page %s:%d, due to failed to read data:%s, ret=%d, page count=%d",
-	      file_name_.c_str(), page_num, strerror(errno), ret, file_header_->allocated_pages);
     return RC::IOERR_READ;
   }
   return RC::SUCCESS;
 }
 
+
+RC DiskBufferPool::load_page(PageNum page_num, Frame *frame)
+{
+  s64_t offset = page_num == BP_HEADER_PAGE ? 0 : file_header_->page_offset[page_num - 1];
+  s64_t size = page_num == BP_HEADER_PAGE ? BP_PAGE_SIZE : file_header_->page_offset[page_num] - offset;
+  string str_in, str_out;
+  RC rc;
+  if((rc = load_compress_page(str_in, offset, size))!= RC::SUCCESS){
+    return rc;
+  }
+  if(page_num==BP_HEADER_PAGE){
+    str_out = str_in;
+  } else {
+    if (Util::StreamDecompressString(str_in, str_out) < 0) {
+      LOG_ERROR("depress fail");
+      return RC::ABORT;
+    }
+  }
+  /* 无损压缩 */
+  assert(str_out.size() == sizeof(Page));
+  memcpy(&frame->page_, str_out.data(), sizeof(Page));
+  return RC::SUCCESS;
+}
+
 RC DiskBufferPool::get_page_count(int *page_count)
 {
-  *page_count = file_header_->allocated_pages;
+  *page_count = file_header_->page_count;
   return RC::SUCCESS;
 }
 int DiskBufferPool::file_desc() const
@@ -616,11 +657,11 @@ RC BufferPoolManager::create_file(const char *file_name)
   memset(&page, 0, sizeof(Page));
 
   BPFileHeader *file_header = (BPFileHeader *)page.data;
-  file_header->allocated_pages = 1;
   file_header->page_count = 1;
+  /* header不压缩,因为会变 */
+  file_header->page_offset[0] = BP_PAGE_SIZE;
+  file_header->flush_count = 1;
 
-  char *bitmap = file_header->bitmap;
-  bitmap[0] |= 0x01;
   if (lseek(fd, 0, SEEK_SET) == -1) {
     LOG_ERROR("Failed to seek file %s to position 0, due to %s .", file_name, strerror(errno));
     close(fd);

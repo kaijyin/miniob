@@ -54,13 +54,10 @@ struct Page {
  */
 struct BPFileHeader {
   int32_t page_count;        //! 当前文件一共有多少个页面
-  int32_t allocated_pages;   //! 已经分配了多少个页面
-  char    bitmap[0];         //! 页面分配位图, 第0个页面(就是当前页面)，总是1
+  int32_t flush_count;
+  int64_t page_offset[0];
 
-  /**
-   * 能够分配的最大的页面个数，即bitmap的字节数 乘以8
-   */
-  static const int MAX_PAGE_NUM = (BP_PAGE_DATA_SIZE - sizeof(page_count) - sizeof(allocated_pages)) * 8;
+  static const int MAX_PAGE_NUM = (BP_PAGE_DATA_SIZE - sizeof(page_count)-sizeof(flush_count)) / sizeof(int64_t);
 };
 
 class Frame
@@ -200,13 +197,13 @@ public:
   BufferPoolIterator();
   ~BufferPoolIterator();
 
-  RC init(DiskBufferPool &bp, PageNum start_page = 0);
+  RC init(DiskBufferPool &bp, PageNum start_page = 1);
   bool has_next();
   PageNum next();
   RC reset();
 private:
-  common::Bitmap   bitmap_;
-  PageNum  current_page_num_ = -1;
+  PageNum max_page_num_;
+  PageNum current_page_num_ = -1;
 };
 
 class DiskBufferPool
@@ -279,6 +276,7 @@ public:
    */
   RC flush_page(Frame &frame);
 
+  RC flush_compressed_page(const std::string &data,int64_t offset);
   /**
    * 刷新所有页面到磁盘，即使pin count不是0
    */
@@ -302,6 +300,8 @@ protected:
    * 加载指定页面的数据到内存中
    */
   RC load_page(PageNum page_num, Frame *frame);
+
+  RC load_compress_page(std::string &data, int64_t offset, int64_t size);
 
 private:
   BufferPoolManager &bp_manager_;

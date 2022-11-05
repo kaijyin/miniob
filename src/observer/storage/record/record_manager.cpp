@@ -146,11 +146,7 @@ RC RecordPageHandler::init_empty_page(DiskBufferPool &buffer_pool, PageNum page_
   page_header_->last_capacity = page_size - page_fix_size();
   page_header_->base_key = base_key;
   page_header_->record_num = 0;
-  if ((ret = buffer_pool.flush_page(*frame_)) != RC::SUCCESS) {
-    LOG_ERROR("Failed to flush page header %d:%d.", page_num);
-    return ret;
-  }
-
+  frame_->mark_dirty();
   return RC::SUCCESS;
 }
 
