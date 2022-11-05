@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 class ConditionFilter;
 
 struct PageHeader {
+  int32_t base_key;
   int32_t last_capacity;        // 用掉的容量
   int32_t record_num;           // 当前页面记录的个数
 };
@@ -54,7 +55,7 @@ public:
   ~RecordPageHandler();
   RC init(DiskBufferPool &buffer_pool, PageNum page_num);
   RC recover_init(DiskBufferPool &buffer_pool, PageNum page_num);
-  RC init_empty_page(DiskBufferPool &buffer_pool, PageNum page_num);
+  RC init_empty_page(DiskBufferPool &buffer_pool, PageNum page_num,int base_key);
   RC cleanup();
 
   RC insert_record(const char *data,int record_size, RID *rid);
@@ -94,7 +95,7 @@ public:
 protected:
   char *get_record_data(SlotNum slot_num)
   {
-    uint32_t offset = *(uint32_t *)(frame_->data() + 4 + 4 + 4 * slot_num);
+    uint32_t offset = *(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * slot_num);
     return (frame_->data() + offset);
   }
   uint32_t get_record_size(SlotNum slot_num)
@@ -103,23 +104,27 @@ protected:
     if (slot_num == 0) {
       pre_offset = BP_PAGE_DATA_SIZE;
     } else {
-      pre_offset = *(uint32_t *)(frame_->data() + 4 + 4 + 4 * (slot_num - 1));
+      pre_offset = *(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * (slot_num - 1));
     }
-    return pre_offset - (*(uint32_t *)(frame_->data() + 4 + 4 + 4 * slot_num));
+    return pre_offset - (*(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * slot_num));
   }
-
+  int get_base_key(){
+    return page_header_->base_key;
+  }
   void mark_record(SlotNum slot_num, int record_size){
     /* 从下往上放 */
     uint32_t pre_offset;
     if (slot_num == 0) {
       pre_offset = BP_PAGE_DATA_SIZE;
     } else {
-      pre_offset = *(uint32_t *)(frame_->data() + 4 + 4 + 4 * (slot_num - 1));
+      pre_offset = *(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * (slot_num - 1));
     }
-    *(uint32_t *)(frame_->data() + 4 + 4 + 4 * slot_num) = pre_offset - record_size;
+    *(uint32_t *)(frame_->data() + sizeof(PageHeader) + sizeof(uint32_t) * slot_num) = pre_offset - record_size;
   }
 
 protected:
+  /* 注意压缩如果调大page,key会不会超界 */
+  static const int pre_fex_byte_ = 2;
   DiskBufferPool *disk_buffer_pool_ = nullptr;
   Frame *frame_ = nullptr;
   PageHeader *page_header_ = nullptr;

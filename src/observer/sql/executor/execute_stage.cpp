@@ -444,7 +444,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
       break;
     }
 
-    tuple_to_string(ss, *tuple);
+    tuple->to_string(ss);
     ss << std::endl;
   }
   // std::ofstream out(std::string("scan_res.txt"));

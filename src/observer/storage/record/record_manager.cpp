@@ -72,7 +72,8 @@ RC RecordPageIterator::next(Record &record)
   }
   record.set_rid(page_num_, next_slot_num_);
   record.set_data(record_page_handler_->get_record_data(record.rid().slot_num));
-  record.set_size(record_page_handler_->get_record_size(record.rid().slot_num));
+  record.set_size(record_page_handler_->get_record_size(record.rid().slot_num)+record_page_handler_->pre_fex_byte_);
+  record.set_base_key(record_page_handler_->get_base_key());
   /* 顺序插入 */
   next_slot_num_++;
   return RC::SUCCESS;
@@ -134,7 +135,7 @@ RC RecordPageHandler::recover_init(DiskBufferPool &buffer_pool, PageNum page_num
   return RC::SUCCESS;
 }
 
-RC RecordPageHandler::init_empty_page(DiskBufferPool &buffer_pool, PageNum page_num)
+RC RecordPageHandler::init_empty_page(DiskBufferPool &buffer_pool, PageNum page_num,int base_key)
 {
   RC ret = init(buffer_pool, page_num);
   if (ret != RC::SUCCESS) {
@@ -142,7 +143,8 @@ RC RecordPageHandler::init_empty_page(DiskBufferPool &buffer_pool, PageNum page_
   }
 
   int page_size = BP_PAGE_DATA_SIZE;
-  page_header_->last_capacity = page_size - (4 + 4);
+  page_header_->last_capacity = page_size - page_fix_size();
+  page_header_->base_key = base_key;
   page_header_->record_num = 0;
   if ((ret = buffer_pool.flush_page(*frame_)) != RC::SUCCESS) {
     LOG_ERROR("Failed to flush page header %d:%d.", page_num);
@@ -162,22 +164,21 @@ RC RecordPageHandler::cleanup()
   return RC::SUCCESS;
 }
 
-RC RecordPageHandler::insert_record(const char *data,int record_size, RID *rid)
-{
-  /* 一条record占data+offset(4)的空间 */
-  if (page_header_->last_capacity < record_size + 4) {
-    /* 放不下去了 */
-    return RC::RECORD_NOMEM;
-  }
-
+RC RecordPageHandler::insert_record(const char *data,int record_size, RID *rid){
+  record_size -= pre_fex_byte_;
+  int pre_base = page_header_->base_key;
+  uint16_t val = uint16_t((*(int *)data) - page_header_->base_key);
   page_header_->record_num++;
   page_header_->last_capacity -= record_size + 4;
   int index = page_header_->record_num - 1;
     /* todo(yin)是否需要对8字节对齐 */
   mark_record(index, record_size);
   char *record_data = get_record_data(index);
-  memcpy(record_data, data, record_size);
-
+  memcpy(record_data, &val, sizeof(val));
+  memcpy(record_data + pre_fex_byte_, data + 4, record_size - pre_fex_byte_);
+  if(pre_base!=page_header_->base_key||page_header_->base_key<0){
+    LOG_ERROR("%d %d %d\n", get_page_num(), pre_base, page_header_->base_key);
+  }
   frame_->mark_dirty();
 
   if (rid) {
@@ -191,14 +192,14 @@ RC RecordPageHandler::insert_record(const char *data,int record_size, RID *rid)
 
 /* only for sequence insert */
 std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(int key){
-  int right = page_header_->record_num - 1;
-  int left = 0;
+  SlotNum left=0,right = page_header_->record_num - 1;
+  int base_key = page_header_->base_key;
   while(left<right){
-    int mid = (left + right) >> 1;
+    SlotNum mid = (left + right) >> 1;
     char *record_data = get_record_data(mid);
     int val = 0;
-    decode_val(record_data, 0, &val, sizeof(val) * 8);
-    if (val < key) {
+    decode_val(record_data, 0, &val, pre_fex_byte_ * 8);
+    if (val+base_key < key) {
       left = mid + 1;
     } else {
       right = mid;
@@ -206,26 +207,26 @@ std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(int key){
   }
   char *record_data = get_record_data(left);
   int val = 0;
-  decode_val(record_data, 0, &val, sizeof(val) * 8);
-  if (val != key) {
+  decode_val(record_data, 0, &val, pre_fex_byte_ * 8);
+  if (val+base_key != key) {
     /* 不存在这个key的tuple */
     return {RC::SUCCESS, {}};
   }
   std::vector<Record> records;
   Record record;
-  record.set_data(record_data);
-  record.set_rid(RID(get_page_num(), left));
+  RID rid(get_page_num(), left);
+  get_record(&rid, &record);
   records.push_back(record);
   left++;
   while (left < page_header_->record_num) {
     char *record_data = get_record_data(left);
     int val = 0;
-    decode_val(record_data, 0, &val, sizeof(val) * 8);
-    if (val != key) {
+    decode_val(record_data, 0, &val, pre_fex_byte_ * 8);
+    if (val+base_key != key) {
       break;
     } else {
-      record.set_data(record_data);
-      record.set_rid(RID(get_page_num(), left));
+      rid.slot_num = left;
+      get_record(&rid, &record);
       records.push_back(record);
     }
     left++;
@@ -318,6 +319,8 @@ RC RecordPageHandler::get_record(const RID *rid, Record *rec)
 
   rec->set_rid(*rid);
   rec->set_data(get_record_data(rid->slot_num));
+  rec->set_size(get_record_size(rid->slot_num) + pre_fex_byte_);
+  rec->set_base_key(page_header_->base_key);
   return RC::SUCCESS;
 }
 
@@ -336,7 +339,7 @@ PageNum RecordPageHandler::get_page_num() const
 
 bool RecordPageHandler::can_insert(int record_size) const{
   /* data+offset */
-  return page_header_->last_capacity >= record_size + 4;
+  return page_header_->last_capacity >= (record_size + 4 - pre_fex_byte_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -369,24 +372,24 @@ RC RecordFileHandler::init_free_pages()
   // 这个效率很低，会降低启动速度
 
   RC rc = RC::SUCCESS;
-  BufferPoolIterator bp_iterator;
-  bp_iterator.init(*disk_buffer_pool_);
-  RecordPageHandler record_page_handler;
-  PageNum current_page_num = 0;
-  while (bp_iterator.has_next()) {
-    current_page_num = bp_iterator.next();
-    rc = record_page_handler.init(*disk_buffer_pool_, current_page_num);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to init record page handler. page num=%d, rc=%d:%s", current_page_num, rc, strrc(rc));
-      return rc;
-    }
+  // BufferPoolIterator bp_iterator;
+  // bp_iterator.init(*disk_buffer_pool_);
+  // RecordPageHandler record_page_handler;
+  // PageNum current_page_num = 0;
+  // while (bp_iterator.has_next()) {
+  //   current_page_num = bp_iterator.next();
+  //   rc = record_page_handler.init(*disk_buffer_pool_, current_page_num);
+  //   if (rc != RC::SUCCESS) {
+  //     LOG_WARN("failed to init record page handler. page num=%d, rc=%d:%s", current_page_num, rc, strrc(rc));
+  //     return rc;
+  //   }
 
     // if (!record_page_handler.can_insert()) {
     //   free_pages_.insert(current_page_num);
     // }
     /* 全都跳过 */
-    record_page_handler.cleanup();
-  }
+    // record_page_handler.cleanup();
+  // }
   return rc;
 }
 
@@ -423,7 +426,8 @@ RC RecordFileHandler::insert_record(const char *data, int record_size, RID *rid)
     }
 
     current_page_num = frame->page_num();
-    ret = record_page_handler.init_empty_page(*disk_buffer_pool_, current_page_num);
+    int base_key = *(int *)data;
+    ret = record_page_handler.init_empty_page(*disk_buffer_pool_, current_page_num, base_key);
     if (ret != RC::SUCCESS) {
       LOG_ERROR("Failed to init empty page. ret:%d", ret);
       if (RC::SUCCESS != disk_buffer_pool_->unpin_page(frame)) {
@@ -437,7 +441,7 @@ RC RecordFileHandler::insert_record(const char *data, int record_size, RID *rid)
   }
 
   // 找到空闲位置
-  return record_page_handler.insert_record(data,record_size,rid);
+  return record_page_handler.insert_record(data, record_size, rid);
 }
 
 RC RecordFileHandler::recover_insert_record(const char *data, int record_size, RID *rid)

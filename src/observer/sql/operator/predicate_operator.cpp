@@ -41,9 +41,9 @@ RC PredicateOperator::next()
       break;
     }
 
-    if (do_predicate(static_cast<RowTuple &>(*tuple))) {
+    // if (do_predicate(static_cast<RowTuple &>(*tuple))) {
       return rc;
-    }
+    // }
   }
   return rc;
 }

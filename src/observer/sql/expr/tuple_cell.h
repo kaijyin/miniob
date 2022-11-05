@@ -36,15 +36,7 @@ public:
   void set_length(int length) { this->length_ = length; }
   void set_data(char *data) { this->data_ = data; }
   void set_data(const char *data) { this->set_data(const_cast<char *>(data)); }
-  void set_offset(int offset){
-    this->offset_ = offset;
-  }
-  void set_idx(int idx){
-    this->idx_ = idx;
-  }
-  void set_huf(Huffman*huf){
-    huf_ = huf;
-  }
+
   void to_string(std::ostream &os) const;
 
   int compare(const TupleCell &other) const;
@@ -55,12 +47,6 @@ public:
   }
 
   int length() const { return length_; }
-  int offset() const {
-    return offset_;
-  }
-  int idx()const {
-    return idx_;
-  }
   AttrType attr_type() const
   {
     return attr_type_;
@@ -70,7 +56,4 @@ private:
   AttrType attr_type_ = UNDEFINED;
   int length_ = -1;
   char *data_ = nullptr; // real data. no need to move to field_meta.offset
-  int offset_ = -1;
-  int idx_ = -1;
-  Huffman *huf_;
 };

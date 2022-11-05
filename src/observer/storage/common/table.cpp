@@ -403,10 +403,12 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
   char *record = new char[max_record_size];
   memset(record, 0, max_record_size);
   int record_size = 0;
+  static int count_ = 0;
+  count_++;
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    if(i==2||i==3||i==8||i==9||i==13){
+    if(i==1||i==2||i==3||i==7||i==8||i==9||i==11||i==13){
       continue;
     }
     if(i==4){
@@ -417,11 +419,31 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
-    if(i==6||i==7){
-      float val= *(float*)values[i].data;
-      int v = val * 100;
-      /* 取后两位 */
-      encode_val(record, field->offset(), &v, field->len());
+    if(i==6){
+      int v1 = *(int *)(values[1].data);
+      if(v1>200000){
+        LOG_ERROR("%d", count_);
+        exit(0);
+      }
+      float val2 = *(float *)values[6].data;
+      int v2 = val2 * 100;
+      int res = v1 * 11 + v2;
+      encode_val(record, field->offset(), &res, field->len());
+      continue;
+    }
+    if(i==10){
+      int v1 = *(int *)values[10].data;
+      float val2 = *(float *)values[7].data;
+      int v2 = val2 * 100;
+      int res = v1 * 11 + v2;
+      encode_val(record, field->offset(), &res, field->len());
+      continue;
+    }
+    if(i==12){
+      int v1 = *(int *)values[11].data;
+      int v2 = *(int *)values[12].data;
+      int res = v1 * 11 * 32 * 13 + v2;
+      encode_val(record, field->offset(), &res, field->len());
       continue;
     }
     if(i==14){
@@ -622,7 +644,7 @@ public:
 
   RC insert_index(const Record *record)
   {
-    return index_->insert_entry(record->data(), &record->rid());
+    return index_->insert_entry(record->data(), &record->rid(), record->pre_fex_byte(), record->base_key());
   }
 
 private:

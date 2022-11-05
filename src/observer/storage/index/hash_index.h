@@ -79,11 +79,12 @@ public:
     return RC::SUCCESS;
   }
 
-  RC insert_entry(const char *record, const RID *rid)override{
+  RC insert_entry(const char *record, const RID *rid,int pre_fex_byte=0,int base_key=0)override{
     /* key */
     int key = 0;
-    decode_val(record, field_meta_.offset(), &key, field_meta_.len());
-    while(hash_rids_.size()<=(size_t)key){
+    decode_val(record, field_meta_.offset()-pre_fex_byte*8, &key, field_meta_.len());
+    key /= 11;
+    while (hash_rids_.size() <= (size_t)key) {
       hash_rids_.push_back({});
     }
     hash_rids_[key].push_back(*rid);
@@ -97,7 +98,7 @@ public:
 				       const char *right_key, int right_len, bool right_inclusive)override{
      int key = 0;
      decode_val(left_key, 0, &key, field_meta_.len());
-     if(key>=hash_rids_.size()){
+     if (key >= hash_rids_.size()) {
        return new HashIndexScanner({});
      }
      return new HashIndexScanner(hash_rids_[key]);

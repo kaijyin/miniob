@@ -99,15 +99,26 @@ public:
   void set_size(int size){
     length_ = size;
   }
+  void set_base_key(int base_key){
+    base_key_ = base_key;
+  }
   int size(){
     return length_;
   }
+  int base_key()const{
+    return base_key_;
+  }
+  int pre_fex_byte()const{
+    return pre_fex_byte_;
+  }
 
 private:
-  RID                            rid_;
+  static const int pre_fex_byte_ = 2;
+  RID rid_;
 
   // the data buffer
   // record will not release the memory
   char *                         data_ = nullptr;
   int length_ = 0;
+  int base_key_ = 0;
 };

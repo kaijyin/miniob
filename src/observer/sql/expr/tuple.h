@@ -16,12 +16,13 @@ See the Mulan PSL v2 for more details. */
 
 #include <memory>
 #include <vector>
-
+#include <sstream>
 #include "common/log/log.h"
 #include "sql/parser/parse.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/expr/expression.h"
 #include "storage/record/record.h"
+#include  "util/util.h"
 
 class Table;
 
@@ -70,7 +71,26 @@ public:
   virtual RC  find_cell(const Field &field, TupleCell &cell) const = 0;
 
   virtual RC  cell_spec_at(int index, const TupleCellSpec *&spec) const = 0;
+
+  virtual void to_string(std::stringstream &os) const = 0;
 };
+
+static int enum_col9_num = 3;
+static char *enum_col9[] = {"A", "N", "R"};
+
+static int enum_col10_num = 2;
+static char *enum_col10[] = {"F", "O"};
+
+static int enum_col14_num = 4;
+static char *enum_col14[] = {
+    "COLLECT COD",
+    "DELIVER IN PERSON",
+    "NONE",
+    "TAKE BACK RETURN",
+};
+
+static int enum_col15_num = 7;
+static char *enum_col15[] = {"SHIP", "REG AIR", "AIR", "TRUCK", "MAIL", "FOB", "RAIL"};
 
 class RowTuple : public Tuple
 {
@@ -115,14 +135,7 @@ public:
     const FieldMeta *field_meta = field_expr->field().meta();
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data());
-    if(index!=15){
-      cell.set_length(field_meta->len());
-    }else{
-      cell.set_length(this->record_->size() * 8 - field_meta->offset());
-    }
-    cell.set_offset(field_meta->offset());
-    cell.set_idx(index);
-    cell.set_huf(table_->get_huffman());
+    cell.set_length(field_meta->len());
     return RC::SUCCESS;
   }
 
@@ -163,7 +176,124 @@ public:
   {
     return *record_;
   }
+  void to_string(std::stringstream &os)const override{
+    static char temp[20];
+    bool first_field = true;
+    for (int i = 0; i < speces_.size(); i++) {
+      const TupleCellSpec *spec = speces_[i];
+      FieldExpr *field_expr = (FieldExpr *)spec->expression();
+      const FieldMeta *field_meta = field_expr->field().meta();
+      if (!first_field) {
+        os << " | ";
+      } else {
+        first_field = false;
+      }
+      int val = 0;
+      if (i == 0) {
+        uint16_t val = *(uint16_t *)(record_->data());
+        int v = record_->base_key() + val;
+        os << v;
+        continue;
+      }
+      if (i == 1) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        os << val / 11;
+        continue;
+      }
+      if (i == 2) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        os << val / (11 * 101);
+        continue;
+      }
+      if (i == 3) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        os << val % 11;
+        continue;
+      }
+      if (i == 4) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        os << (val % (11 * 101)) / 11;
+        continue;
+      }
+      if (i == 5) {
+        float val;
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        os << double2string(val);
+        continue;
+      }
+      if (i == 6 || i == 7) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        double v = (double)(val % 11) / 100.0;
+        os << double2string(v);
+        continue;
+      }
+
+      if (i == 8) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val /= enum_col10_num * enum_col14_num * enum_col15_num;
+        os << enum_col9[val];
+        continue;
+      }
+      if (i == 9) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val = (val % (enum_col10_num * enum_col14_num * enum_col15_num)) / (enum_col14_num * enum_col15_num);
+        os << enum_col10[val];
+        continue;
+      }
+      if (i == 10) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val /= 11;
+        int year = 1990 + val / (32 * 13);
+        int month = (val % (32 * 13)) / 32;
+        int day = val % 32;
+        sprintf(temp, "%d-%02d-%02d", year, month, day);
+        os << temp;
+        continue;
+      }
+      if (i == 11) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val /= 32 * 13 * 11;
+        int year = 1990 + val / (32 * 13);
+        int month = (val % (32 * 13)) / 32;
+        int day = val % 32;
+        sprintf(temp, "%d-%02d-%02d", year, month, day);
+        os << temp;
+        continue;
+      }
+      if (i == 12) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val %= 32 * 13 * 11;
+        int year = 1990 + val / (32 * 13);
+        int month = (val % (32 * 13)) / 32;
+        int day = val % 32;
+        sprintf(temp, "%d-%02d-%02d", year, month, day);
+        os << temp;
+        continue;
+      }
+      if (i == 13) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val = (val % (enum_col14_num * enum_col15_num)) / enum_col15_num;
+        os << enum_col14[val];
+        continue;
+      }
+      if (i == 14) {
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val %= enum_col15_num;
+        os << enum_col15[val];
+        continue;
+      }
+      if (i == 15) {
+        /* 哈夫曼解码 */
+        char *code = record_->data() + (field_meta->offset()/ 8)-pre_fex_byte_;
+        int len = record_->size() - field_meta->offset() / 8;
+        std::string word = table_->get_huffman()->decode(code, len);
+        os << word;
+        continue;
+      }
+    }
+  }
 private:
+  static const int pre_fex_byte_ = 2;
   Record *record_ = nullptr;
   const Table *table_ = nullptr;
   std::vector<TupleCellSpec *> speces_;
@@ -232,6 +362,10 @@ public:
     spec = speces_[index];
     return RC::SUCCESS;
   }
+  void to_string(std::stringstream &ss)const override{
+    tuple_->to_string(ss);
+  }
+
 private:
   std::vector<TupleCellSpec *> speces_;
   Tuple *tuple_ = nullptr;

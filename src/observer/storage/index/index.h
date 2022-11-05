@@ -52,7 +52,7 @@ public:
   virtual RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) = 0;
   virtual RC close() = 0;
 
-  virtual RC insert_entry(const char *record, const RID *rid) = 0;
+  virtual RC insert_entry(const char *record, const RID *rid,int pre_fex_byte=0,int base_key=0) = 0;
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
 
   virtual IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive,

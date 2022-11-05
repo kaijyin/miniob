@@ -88,7 +88,7 @@ RC BplusTreeIndex::close()
   return RC::SUCCESS;
 }
 
-RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
+RC BplusTreeIndex::insert_entry(const char *record, const RID *rid,int pre_fex_byte,int base_key)
 {
   return index_handler_.insert_entry(record + (field_meta_.offset() / 8), rid);
 }
