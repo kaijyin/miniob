@@ -22,7 +22,7 @@ std::string double2string(double v);
 void encode_val(void *p, int offset, void* val, int bit);
 void decode_val(const void *p, int offset, void* val, int bit);
 
-const int DEFAULTCOMPRESSLEVEL = 5;
+const int DEFAULTCOMPRESSLEVEL = 22;
 
 class Util {
  public:
