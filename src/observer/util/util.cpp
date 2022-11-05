@@ -15,7 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include <string.h>
 #include <string>
 #include "util/util.h"
-#include "zstd.h"
+#include <zstd.h>
 using namespace std;
 
 std::string double2string(double v)
