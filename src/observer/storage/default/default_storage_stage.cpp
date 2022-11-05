@@ -246,6 +246,11 @@ RC insert_record_from_file(
         value_init_date(&record_values[i], file_value.c_str());
       } break;
       case FLOATS: {
+        if(i==5){
+          value_init_string(&record_values[i], file_value.c_str());
+          record_values[i].type = FLOATS;
+          break;
+        }
         deserialize_stream.clear();
         deserialize_stream.str(file_value);
 

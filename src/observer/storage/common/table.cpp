@@ -420,8 +420,10 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       continue;
     }
     if(i==5){
-      float val = *(float *)values[5].data;
-      int res = val * 100;
+      std::string str = std::string((char *)values[5].data);
+      std::string front = str.substr(0, str.find_first_of('.'));
+      std::string end = str.substr(str.find_first_of('.') + 1);
+      int res = atoi(front.c_str()) * 100 + atoi(end.c_str());
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
