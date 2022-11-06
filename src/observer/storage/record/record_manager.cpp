@@ -162,7 +162,6 @@ RC RecordPageHandler::cleanup()
 
 RC RecordPageHandler::insert_record(const char *data,int record_size, RID *rid){
   record_size -= pre_fex_byte_;
-  int pre_base = page_header_->base_key;
   uint16_t val = uint16_t((*(int *)data) - page_header_->base_key);
   page_header_->record_num++;
   page_header_->last_capacity -= record_size + 4;
@@ -172,9 +171,8 @@ RC RecordPageHandler::insert_record(const char *data,int record_size, RID *rid){
   char *record_data = get_record_data(index);
   memcpy(record_data, &val, sizeof(val));
   memcpy(record_data + pre_fex_byte_, data + 4, record_size - pre_fex_byte_);
-  if(pre_base!=page_header_->base_key||page_header_->base_key<0){
-    LOG_ERROR("%d %d %d\n", get_page_num(), pre_base, page_header_->base_key);
-  }
+
+
   frame_->mark_dirty();
 
   if (rid) {

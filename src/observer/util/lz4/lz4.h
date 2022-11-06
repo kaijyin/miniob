@@ -13,6 +13,7 @@
 
 #include <lz4file.h>
 
+namespace LZ4{
 
 #define CHUNK_SIZE (16*1024)
 
@@ -30,62 +31,73 @@ static size_t get_file_size(char *filename)
 
     return statbuf.st_size;
 }
-
-static int compress_file(FILE* f_in, FILE* f_out)
+int compress_file(const char *fname, const char *outName, int cLevel, int nbThreads)
 {
-    assert(f_in != NULL); assert(f_out != NULL);
+  FILE *const f_in = fopen(fname, "rb");
+  FILE *const f_out = fopen(outName, "wb");
+  assert(f_in != NULL);
+  assert(f_out != NULL);
 
-    LZ4F_errorCode_t ret = LZ4F_OK_NoError;
-    size_t len;
-    LZ4_writeFile_t* lz4fWrite;
-    void* const buf = malloc(CHUNK_SIZE);
-    if (!buf) {
-        printf("error: memory allocation failed \n");
+  LZ4F_errorCode_t ret = LZ4F_OK_NoError;
+  size_t len;
+  LZ4_writeFile_t *lz4fWrite;
+  void *const buf = malloc(CHUNK_SIZE);
+  if (!buf) {
+    printf("error: memory allocation failed \n");
+  }
+
+  /* Of course, you can also use prefsPtr to
+   * set the parameters of the compressed file
+   * NULL is use default
+   */
+  ret = LZ4F_writeOpen(&lz4fWrite, f_out, NULL);
+  if (LZ4F_isError(ret)) {
+    fclose(f_in);
+    fclose(f_out);
+    printf("LZ4F_writeOpen error: %s\n", LZ4F_getErrorName(ret));
+    free(buf);
+    return 1;
+  }
+
+  while (1) {
+    len = fread(buf, 1, CHUNK_SIZE, f_in);
+
+    if (ferror(f_in)) {
+      printf("fread error\n");
+      goto out;
     }
 
-    /* Of course, you can also use prefsPtr to
-     * set the parameters of the compressed file
-     * NULL is use default
-     */
-    ret = LZ4F_writeOpen(&lz4fWrite, f_out, NULL);
+    /* nothing to read */
+    if (len == 0) {
+      break;
+    }
+
+    ret = LZ4F_write(lz4fWrite, buf, len);
     if (LZ4F_isError(ret)) {
-        printf("LZ4F_writeOpen error: %s\n", LZ4F_getErrorName(ret));
-        free(buf);
-        return 1;
+      printf("LZ4F_write: %s\n", LZ4F_getErrorName(ret));
+      goto out;
     }
-
-    while (1) {
-        len = fread(buf, 1, CHUNK_SIZE, f_in);
-
-        if (ferror(f_in)) {
-            printf("fread error\n");
-            goto out;
-        }
-
-        /* nothing to read */
-        if (len == 0) {
-            break;
-        }
-
-        ret = LZ4F_write(lz4fWrite, buf, len);
-        if (LZ4F_isError(ret)) {
-            printf("LZ4F_write: %s\n", LZ4F_getErrorName(ret));
-            goto out;
-        }
-    }
+  }
 
 out:
-    free(buf);
-    if (LZ4F_isError(LZ4F_writeClose(lz4fWrite))) {
-        printf("LZ4F_writeClose: %s\n", LZ4F_getErrorName(ret));
-        return 1;
-    }
+  free(buf);
+  if (LZ4F_isError(LZ4F_writeClose(lz4fWrite))) {
+    fclose(f_in);
+    fclose(f_out);
+    printf("LZ4F_writeClose: %s\n", LZ4F_getErrorName(ret));
+    return 1;
+  }
 
-    return 0;
+    fclose(f_in);
+    fclose(f_out);
+  return 0;
 }
 
-static int decompress_file(FILE* f_in, FILE* f_out)
+int decompress_file(const char* fname,const char* f_out_name)
 {
+    FILE* const f_in  = fopen(fname, "rb");
+    FILE *const f_out = fopen(f_out_name, "wb");
+
     assert(f_in != NULL); assert(f_out != NULL);
 
     LZ4F_errorCode_t ret = LZ4F_OK_NoError;
@@ -93,6 +105,7 @@ static int decompress_file(FILE* f_in, FILE* f_out)
     void* const buf= malloc(CHUNK_SIZE);
     if (!buf) {
         printf("error: memory allocation failed \n");
+        return 1;
     }
 
     ret = LZ4F_readOpen(&lz4fRead, f_in);
@@ -133,24 +146,7 @@ out:
 
     return 0;
 }
-
-int compareFiles(FILE* fp0, FILE* fp1)
-{
-    int result = 0;
-
-    while (result==0) {
-        char b0[1024];
-        char b1[1024];
-        size_t const r0 = fread(b0, 1, sizeof(b0), fp0);
-        size_t const r1 = fread(b1, 1, sizeof(b1), fp1);
-
-        result = (r0 != r1);
-        if (!r0 || !r1) break;
-        if (!result) result = memcmp(b0, b1, r0);
-    }
-
-    return result;
-}
+};  // namespace lz4
 
 // int main(int argc, const char **argv) {
 //     char inpFilename[256] = { 0 };
