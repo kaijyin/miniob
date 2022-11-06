@@ -14,29 +14,52 @@
 #include "common/log/log.h"
 using namespace std;
 
+
+static set<char> dims = {
+    ' ',
+    '!',
+    '-',
+    ':',
+    ',',
+    '?',
+    ';',
+};
+static size_t find_first_dim_of(const string str,const set<char>&dims){
+  for (size_t i = 0; i < str.size();i++){
+    if(dims.count(str[i])){
+      return i;
+    }
+  }
+  return str.npos;
+}
+static void split_string_keep_delim_pass(const std::string &str, std::vector<std::string> &results){
+  size_t cut_at;
+  std::string tmp_str(str);
+  while ((cut_at = find_first_dim_of(tmp_str,dims)) != tmp_str.npos) {
+    if (cut_at > 0) {
+      results.push_back(tmp_str.substr(0, cut_at));
+    }
+    results.push_back(tmp_str.substr(cut_at, 1));
+    tmp_str = tmp_str.substr(cut_at + 1);
+  }
+
+  if (tmp_str.length() > 0) {
+    results.push_back(tmp_str);
+  }
+};
+
 class Huffman {
 public:
-  Huffman(){
-    for (char p = 'a'; p <= 'z';p++){
-      words_count_[p] = 0;
-    }
-    words_count_[' '] = 0;
-    words_count_['!'] = 0;
-    words_count_['-'] = 0;
-    words_count_[':'] = 0;
-    words_count_[','] = 0;
-    words_count_['?'] = 0;
-    words_count_[';'] = 0;
-    words_count_['T'] = 0;
-    words_count_['\0'] = 0;
-  }
+  Huffman(){}
   ~Huffman(); 
   void count(const std::string &str){
-    for (char c : str) {
-      words_count_[c]++;
+    vector<string> results;
+    split_string_keep_delim_pass(str, results);
+    for(auto &result:results){
+      words_count_[result]++;
     }
     /* 每行最后必定要有个\0*/
-    words_count_['\0']++;
+    words_count_["\0"]++;
   }
 
   void stop(){
@@ -50,8 +73,10 @@ public:
     int num = words_id_.size();
     out.write((char *)&num, sizeof(num));
     for (auto word : words_id_) {
-      out.write(&word.first, sizeof(word.first));
-      out.write((char*)&word.second, sizeof(word.second));
+      int size = word.first.size();
+      out.write((char*)&size, sizeof(size));
+      out.write((char*)word.first.data(), size);
+      out.write((char *)&word.second, sizeof(word.second));
     }
     num = tree_.size();
     out.write((char *)&num, sizeof(num));
@@ -82,12 +107,15 @@ public:
     int num = 0;
     in.read((char *)&num, sizeof(num));
     for (int i = 0; i < num;i++){
-      char a;
-      int b;
-      in.read((char *)&a, sizeof(a));
-      in.read((char *)&b, sizeof(b));
-      words_id_[a] = b;
-      id_words_[b] = a;
+      int size;
+      string str;
+      int id;
+      in.read((char *)&size, sizeof(size));
+      str.resize(size);
+      in.read((char *)str.data(), size);
+      in.read((char *)&id, sizeof(id));
+      words_id_[str] = id;
+      id_words_[id] = str;
     }
     in.read((char *)&num, sizeof(num));
     tree_.resize(num, {-1, -1});
@@ -117,13 +145,16 @@ public:
 
   string encode(const char *str,int len){
     len = strnlen(str, len);
+    string s(str, len);
+    vector<string> str_res;
+    split_string_keep_delim_pass(s, str_res);
     int offset = 0;
     string res;
-    for (int i = 0; i < len; i++) {
-      const string &code = code_map_[words_id_[str[i]]];
+    for (auto&ss:str_res) {
+      const string &code = code_map_[words_id_[ss]];
       encode_into_word(res, offset, code);
     }
-    const string &end = code_map_[words_id_['\0']];
+    const string &end = code_map_[words_id_["\0"]];
     encode_into_word(res, offset, end);
     return res;
   }
@@ -133,9 +164,9 @@ public:
     count++;
     int offset = 0;
     string res;
-    char p;
-    while((p=decode_into_word(code,offset))!='\0'){
-      res.push_back(p);
+    string p;
+    while((p=decode_into_word(code,offset))!="\0"){
+      res.append(p);
     }
     return res;
   }
@@ -150,11 +181,11 @@ private:
       offset++;
     }
   }
-  char decode_into_word(const char*code,int &offset){
+  string decode_into_word(const char*code,int &offset){
     /* 根节点就是最后的节点 */
     return decode_word(tree_.size() - 1, code, offset);
   }
-  char decode_word(int id,const char*code,int &offset){
+  string decode_word(int id,const char*code,int &offset){
     if(tree_[id].first==-1&&tree_[id].second==-1){
       return id_words_[id];
     }
@@ -166,8 +197,8 @@ private:
       return decode_word(tree_[id].second, code, offset);
     }
   }
-  static void build(const unordered_map<char,int> &words_count, unordered_map<char, int> &words_id,
-  unordered_map<int, char> &id_words,vector<pair<int, int>> &tree,unordered_map<int, string> &code_map){
+  static void build(const unordered_map<string,int> &words_count, unordered_map<string, int> &words_id,
+  unordered_map<int, string> &id_words,vector<pair<int, int>> &tree,unordered_map<int, string> &code_map){
     int id = 0;
     struct node {
       int id, count_;
@@ -210,9 +241,9 @@ private:
   }
 
 private:
-  unordered_map<char, int> words_count_;
+  unordered_map<string, int> words_count_;
   unordered_map<int, string> code_map_;
-  unordered_map<char, int> words_id_;
-  unordered_map<int, char> id_words_;
+  unordered_map<string, int> words_id_;
+  unordered_map<int, string> id_words_;
   vector<pair<int, int>> tree_;
 };
