@@ -143,6 +143,9 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
   }
   fs.close();
 
+  if(Util::DepressFile(table_data_file(base_dir,table_meta_.name()))!=0){
+    return RC::ABORT;
+  }
   // 加载数据文件
   RC rc = init_record_handler(base_dir);
   if (rc != RC::SUCCESS) {
@@ -764,9 +767,10 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   table_meta_.swap(new_table_meta);
-
   LOG_INFO("Successfully added a new index (%s) on the table (%s)", index_name, name());
-
+  if(strcmp(index_name,"I_L_SHIPDATE")==0){
+    sync();
+  }
   return rc;
 }
 
@@ -1055,6 +1059,9 @@ RC Table::sync()
     }
   }
   data_buffer_pool_->flush_all_pages();
+  if(Util::CompressFile(table_data_file(base_dir_.c_str(),table_meta_.name()))!=0){
+    return RC::ABORT;
+  }
   LOG_INFO("Sync table over. table=%s", name());
   return rc;
 }

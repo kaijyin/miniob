@@ -59,6 +59,9 @@ public:
   }
   RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)override{
     file_name_ = strdup(file_name);
+    if(Util::DepressFile(file_name)!=0){
+      return RC::ABORT;
+    }
     Index::init(index_meta, field_meta);
     std::ifstream in(file_name,std::ios_base::binary);
     /* 从文件中读取数据 */
@@ -120,6 +123,9 @@ public:
     }
     out.flush();
     out.close();
+    if(Util::CompressFile(file_name_)!=0){
+      return RC::ABORT;
+    }
     return RC::SUCCESS;
   }
   IndexType type()override{

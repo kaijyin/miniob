@@ -23,6 +23,7 @@ void encode_val(void *p, int offset, void* val, int bit);
 void decode_val(const void *p, int offset, void* val, int bit);
 
 const int DEFAULTCOMPRESSLEVEL = 22;
+const int DEFAULTFILECOMPRESSLEVEL = -5;
 
 class Util {
  public:
@@ -40,4 +41,6 @@ class Util {
   // if return code not 0 is error
   static int StreamCompressString(const std::string& src, std::string& dst,
                                   int compressionlevel = DEFAULTCOMPRESSLEVEL);
+  static int CompressFile(const std::string file_name,int compressionlevel = DEFAULTFILECOMPRESSLEVEL);
+  static int DepressFile(const std::string file_name,int compressionlevel = DEFAULTFILECOMPRESSLEVEL);
 };

@@ -513,7 +513,8 @@ RC DiskBufferPool::flush_all_pages()
       has_dirty_page |= frame->dirty_;
     }
   }
-  return RC::SUCCESS;
+  RC rc = close_file();
+  return rc;
 }
 
 RC DiskBufferPool::recover_page(PageNum page_num)

@@ -14,8 +14,13 @@ See the Mulan PSL v2 for more details. */
 
 #include <string.h>
 #include <string>
-#include "util/util.h"
 #include <zstd.h>
+#include <sstream>
+#include <fstream>
+#include <stdio.h>
+#include "util/util.h"
+#include "util/fileCompress.h"
+#include "common/log/log.h"
 using namespace std;
 
 std::string double2string(double v)
@@ -195,5 +200,62 @@ int Util::StreamDecompressString(const string& src, string& dst, int compression
     return -3;
   }
 
+  return 0;
+}
+
+int Util::CompressFile(const std::string file_name,int compressionlevel){
+    /* compress */
+    string lz4_file_name = file_name + ".lz4";
+    {
+      FILE *const inpFp = fopen(file_name.c_str(), "rb");
+      FILE *const outFp = fopen(lz4_file_name.c_str(), "wb");
+      LZ4F_errorCode_t ret = compress_file(inpFp, outFp);
+      fclose(inpFp);
+      fclose(outFp);
+
+      if (ret) {
+        LOG_ERROR("compression error: %s\n", LZ4F_getErrorName(ret));
+        return 1;
+      }
+
+      LOG_INFO("%s: %zu → %zu bytes, %.1f%%\n",
+          file_name.c_str(),
+          get_file_size((char*)file_name.c_str()),
+          get_file_size((char*)lz4_file_name.c_str()), /* might overflow is size_t is 32 bits and size_{in,out} > 4 GB */
+          (double)get_file_size((char*)lz4_file_name.c_str()) / get_file_size((char*)file_name.c_str()) * 100);
+
+      LOG_INFO("compress : done\n");
+    }
+    int ret = rename(lz4_file_name.c_str(), file_name.c_str());
+    if(ret !=0){
+      return ret;
+    }
+    return 0;
+}
+
+int Util::DepressFile(const std::string file_name,int compressionlevel){
+      string lz4_file_name  = file_name + ".lz4";
+      /* decompress */
+      {
+        FILE *const inpFp = fopen(file_name.c_str(), "rb");
+        FILE *const outFp = fopen(lz4_file_name.c_str(), "wb");
+
+        LOG_INFO("decompress : %s -> %s\n", file_name.c_str(), lz4_file_name.c_str());
+        LZ4F_errorCode_t ret = decompress_file(inpFp, outFp);
+
+        fclose(outFp);
+        fclose(inpFp);
+
+        if (ret) {
+          LOG_ERROR("compression error: %s\n", LZ4F_getErrorName(ret));
+          return 1;
+        }
+
+        LOG_INFO("decompress : done\n");
+    }
+    int ret = rename(lz4_file_name.c_str(), file_name.c_str());
+    if(ret !=0){
+      return ret;
+    }
   return 0;
 }

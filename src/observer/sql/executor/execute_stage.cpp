@@ -165,7 +165,6 @@ void ExecuteStage::handle_request(common::StageEvent *event)
     } break;
     case SCF_CREATE_INDEX: {
       do_create_index(sql_event);
-      DefaultHandler::get_default().sync();
     } break;
     case SCF_SHOW_TABLES: {
       do_show_tables(sql_event);
@@ -178,7 +177,6 @@ void ExecuteStage::handle_request(common::StageEvent *event)
     case SCF_DROP_INDEX:
     case SCF_LOAD_DATA: {
       default_storage_stage_->handle_event(event);
-      DefaultHandler::get_default().sync();
     } break;
     case SCF_SYNC: {
       RC rc = DefaultHandler::get_default().sync();

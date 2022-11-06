@@ -15,7 +15,7 @@ MESSAGE(STATUS "This is PROJECT_BINARY_DIR dir " ${PROJECT_BINARY_DIR})
 
 # 必须要全路径!
 # link_directories("${PROJECT_SOURCE_DIR}/deps/lib")
-link_libraries("${PROJECT_SOURCE_DIR}/deps/lib/libzstd.a" "${PROJECT_SOURCE_DIR}/deps/lib/libzstd.so")
+link_libraries("${PROJECT_SOURCE_DIR}/deps/lib/libzstd.a" "${PROJECT_SOURCE_DIR}/deps/lib/libzstd.so" "${PROJECT_SOURCE_DIR}/deps/lib/liblz4.a")
 
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 #SET(LIBRARY_OUTPUT_PATH <路径>)
