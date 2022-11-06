@@ -20,9 +20,10 @@ static constexpr const char *TABLE_META_SUFFIX = ".table";
 static constexpr const char *TABLE_META_FILE_PATTERN = ".*\\.table$";
 static constexpr const char *TABLE_DATA_SUFFIX = ".data";
 static constexpr const char *TABLE_INDEX_SUFFIX = ".index";
+static constexpr const char *TABLE_HUF_SUFFIX = ".huf";
 
 std::string table_meta_file(const char *base_dir, const char *table_name);
 std::string table_data_file(const char *base_dir, const char *table_name);
 std::string table_index_file(const char *base_dir, const char *table_name, const char *index_name);
-
+std::string table_huf_file(const char *base_dir, const char *table_name);
 #endif  //__OBSERVER_STORAGE_COMMON_META_UTIL_H_

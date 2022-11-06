@@ -131,6 +131,9 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
   // 加载元数据文件
   std::fstream fs;
   std::string meta_file_path = std::string(base_dir) + common::FILE_PATH_SPLIT_STR + meta_file;
+  // if(Util::DepressFile(meta_file_path.c_str())!=0){
+  //   return RC::ABORT;
+  // };
   fs.open(meta_file_path, std::ios_base::in | std::ios_base::binary);
   if (!fs.is_open()) {
     LOG_ERROR("Failed to open meta file for read. file name=%s, errmsg=%s", meta_file_path.c_str(), strerror(errno));
@@ -144,6 +147,9 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
   fs.close();
 
   if(Util::DepressFile(table_data_file(base_dir,table_meta_.name()))!=0){
+    return RC::ABORT;
+  }
+  if(Util::DepressFile(table_huf_file(base_dir,table_meta_.name()))!=0){
     return RC::ABORT;
   }
   // 加载数据文件
@@ -199,7 +205,7 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
     clog_manager_ = clog_manager;
   }
   huf_ = new Huffman();
-  huf_->deserialize(base_dir_ + "/" + std::string(table_meta_.name()) + ".huf");
+  huf_->deserialize(table_huf_file(base_dir, table_meta_.name()));
 
   return rc;
 }
@@ -1059,7 +1065,13 @@ RC Table::sync()
     }
   }
   data_buffer_pool_->flush_all_pages();
+  // if(Util::CompressFile(table_meta_file(base_dir_.c_str(),table_meta_.name()))!=0){
+  //   return RC::ABORT;
+  // }
   if(Util::CompressFile(table_data_file(base_dir_.c_str(),table_meta_.name()))!=0){
+    return RC::ABORT;
+  }
+  if(Util::CompressFile(table_huf_file(base_dir_.c_str(),table_meta_.name()))!=0){
     return RC::ABORT;
   }
   LOG_INFO("Sync table over. table=%s", name());
