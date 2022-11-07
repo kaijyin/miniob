@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/table_scan_operator.h"
 #include "sql/operator/index_scan_operator.h"
 #include "sql/operator/binary_index_scan_operator.h"
+#include "sql/operator/hash_index_scan_operator.h"
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
@@ -390,7 +391,10 @@ Operator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
     int key = *(int *)left_cell->data();
     return {new BinIndexScanOperator(table, index, key)};
   }
-
+  if(index->type() == IndexType::Hash){
+    int key = *(int *)left_cell->data();
+    return {new HashIndexScanOperator(table, index, key)};
+  }
   /* todo(yin):看一下小端存储对不对 */
   IndexScanOperator *oper = new IndexScanOperator(table, index,
        left_cell, left_inclusive, right_cell, right_inclusive);

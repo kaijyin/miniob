@@ -15,6 +15,7 @@
 #include "util/util.h"
 #include "sql/expr/tuple_cell.h"
 #include "storage/index/index.h"
+#include "util/bloom/bloom.h"
 
 class HashIndexScanner : public IndexScanner {
 public:
@@ -65,15 +66,11 @@ public:
     Index::init(index_meta, field_meta);
     std::ifstream in(file_name,std::ios_base::binary);
     /* 从文件中读取数据 */
-    while (!in.eof()) {
-      int num = 0;
-      hash_rids_.push_back({});
-      in.read((char *)&num, sizeof(num));
-      for (int i = 0; i < num;i++) {
-        RID rid;
-        in.read((char *)&rid, sizeof(rid));
-        hash_rids_.back().push_back(rid);
-      }
+    int size;
+    in.read((char *)&size, sizeof(size));
+    blooms_.resize(size);
+    for(auto&bloom:blooms_){
+      bloom.deserialize(in);
     }
     in.close();
     return RC::SUCCESS;
@@ -87,10 +84,10 @@ public:
     int key = 0;
     decode_val(record, field_meta_.offset()-pre_fex_byte*8, &key, field_meta_.len());
     key /= 11;
-    while (hash_rids_.size() <= (size_t)key) {
-      hash_rids_.push_back({});
+    while (blooms_.size() <= rid->page_num) {
+      blooms_.emplace_back(BloomFilter());
     }
-    hash_rids_[key].push_back(*rid);
+    blooms_[rid->page_num].Set(std::string((char *)&key, sizeof(key)));
     return RC::SUCCESS;
   }
   RC delete_entry(const char *record, const RID *rid)override{
@@ -99,27 +96,32 @@ public:
 
    IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive,
 				       const char *right_key, int right_len, bool right_inclusive)override{
-     int key = 0;
-     decode_val(left_key, 0, &key, field_meta_.len());
-     if (key >= hash_rids_.size()) {
-       return new HashIndexScanner({});
-     }
-     return new HashIndexScanner(hash_rids_[key]);
+    //  int key = 0;
+    //  decode_val(left_key, 0, &key, field_meta_.len());
+    //  if (key >= hash_rids_.size()) {
+    //    return new HashIndexScanner({});
+    //  }
+    //  return new HashIndexScanner(hash_rids_[key]);
+    return nullptr;
    }
-  
+
   std::pair<RC,std::vector<PageNum>> find_pages(int key)const override{
-    return {RC::UNIMPLENMENT, {}};
+    std::vector<PageNum> pages;
+    for (size_t i = 0; i < blooms_.size();i++){
+      if(blooms_[i].Get(std::string((char*)&key,sizeof(key)))){
+        pages.push_back(i);
+      }
+    }
+    return {RC::SUCCESS, pages};
   }
   RC sync() override{
     /* 一定记得在建索引后sync */
     std::ofstream out(file_name_,std::ios_base::trunc|std::ios_base::binary);
     /* 从文件中读取数据 */
-    for (auto rids:hash_rids_){
-      int num = rids.size();
-      out.write((const char *)&num, sizeof(num));
-      for (auto rid : rids) {
-        out.write((const char *)&rid, sizeof(rid));
-      }
+    int size = blooms_.size();
+    out.write((char *)&size, sizeof(size));
+    for (auto &bloom : blooms_) {
+      bloom.serialize(out);
     }
     out.flush();
     out.close();
@@ -134,6 +136,6 @@ public:
 
 private:
   const char *file_name_ = nullptr;
-  std::vector<std::vector<RID>> hash_rids_;
+  std::vector<BloomFilter> blooms_;
 };
 #endif  //__OBSERVER_STORAGE_COMMON_HASH_INDEX_H_

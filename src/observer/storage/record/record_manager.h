@@ -65,6 +65,7 @@ public:
   RC update_record(const Record *rec);
 
   std::pair<RC, std::vector<Record>> get_records(int key);
+  std::pair<RC, std::vector<Record>> get_records(std::function<bool(char *record_data,int pre_fex_byte)>filter);
   template <class RecordUpdater>
   RC update_record_in_place(const RID *rid, RecordUpdater updater)
   {
@@ -163,7 +164,9 @@ public:
    */
   RC get_record(const RID *rid, Record *rec);
 
-  std::pair < RC, std::vector<Record>> get_records(int key, const std::vector<PageNum> pages);
+  std::pair < RC, std::vector<Record>> get_records(int key, const std::vector<PageNum> &pages);
+  std::pair<RC, std::vector<Record>> get_records(const std::vector<PageNum> &pages, std::function<bool(char *record_data,int pre_fex_byte)>filter);
+
   template <class RecordUpdater>  // 改成普通模式, 不使用模板
   RC update_record_in_place(const RID *rid, RecordUpdater updater)
   {

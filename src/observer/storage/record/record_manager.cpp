@@ -184,6 +184,19 @@ RC RecordPageHandler::insert_record(const char *data,int record_size, RID *rid){
   return RC::SUCCESS;
 }
 
+std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(std::function<bool(char *record_data,int pre_fex_byte)>filter){
+  std::vector<Record> records;
+  Record record;
+  for (SlotNum i = 0; i < page_header_->record_num; i++) {
+    char *data = get_record_data(i);
+    if(filter(data,pre_fex_byte_)){
+      RID rid(get_page_num(), i);
+      get_record(&rid, &record);
+      records.push_back(record);
+    }
+  }
+  return {RC::SUCCESS, records};
+}
 /* only for sequence insert */
 std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(int key){
   SlotNum left=0,right = page_header_->record_num - 1;
@@ -479,7 +492,27 @@ RC RecordFileHandler::delete_record(const RID *rid)
   return rc;
 }
 
-std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(int key, const std::vector<PageNum> pages){
+std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(const std::vector<PageNum> &pages, std::function<bool(char *record_data,int pre_fex_byte)>filter){
+  RC ret = RC::SUCCESS;
+  std::vector<Record> result;
+  for (auto page_num : pages) {
+
+    RecordPageHandler page_handler;
+    if ((ret != page_handler.init(*disk_buffer_pool_, page_num)) != RC::SUCCESS) {
+      LOG_ERROR("Failed to init record page handler.page number=%d", page_num);
+      return {ret, {}};
+    }
+    auto res = page_handler.get_records(filter);
+    if (res.first != RC::SUCCESS) {
+      return {res.first, {}};
+    }
+    for (auto &record : res.second) {
+      result.push_back(record);
+    }
+  }
+  return {RC::SUCCESS, result};
+}
+std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(int key, const std::vector<PageNum> &pages){
   RC ret = RC::SUCCESS;
   std::vector<Record> result;
   for (auto page_num : pages) {

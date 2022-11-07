@@ -47,6 +47,9 @@ public:
   {
     return index_meta_;
   }
+  const FieldMeta &field_meta()const{
+    return field_meta_;
+  }
 
   virtual RC create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) = 0;
   virtual RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta) = 0;
