@@ -18,7 +18,6 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 #include <limits>
 #include <sstream>
-#include <memory>
 
 #include "rc.h"
 #include "defs.h"
@@ -88,12 +87,10 @@ class Record
 public:
   Record() = default;
   ~Record() = default;
-  void set_data(char *data){
-    this->data_ = std::shared_ptr<char>(data);
-  }
-  void set_data(std::shared_ptr<char> data) { this->data_ = data; }
-  char* data() { return this->data_.get(); }
-  const char* data() const { return this->data_.get(); }
+
+  void set_data(char *data) { this->data_ = data; }
+  char *data() { return this->data_; }
+  const char *data() const { return this->data_; }
 
   void set_rid(const RID &rid) { this->rid_ = rid; }
   void set_rid(const PageNum page_num, const SlotNum slot_num) { this->rid_.page_num = page_num; this->rid_.slot_num = slot_num; }
@@ -121,7 +118,7 @@ private:
 
   // the data buffer
   // record will not release the memory
-  std::shared_ptr<char>     data_ = nullptr;
+  char *                         data_ = nullptr;
   int length_ = 0;
   int base_key_ = 0;
 };

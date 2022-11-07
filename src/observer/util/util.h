@@ -23,7 +23,6 @@ void encode_val(void *p, int offset, void* val, int bit);
 void decode_val(const void *p, int offset, void* val, int bit);
 
 const int DEFAULTCOMPRESSLEVEL = 22;
-const int DEFAULSTREAMTCOMPRESSLEVEL = 5;
 const int DEFAULTFILECOMPRESSLEVEL = 22;
 const int USE_ZSTD = 1;
 
@@ -31,7 +30,7 @@ class Util {
  public:
   // if return code not 0 is error
   static int CompressString(const std::string& src, std::string& dst,
-                            int compressionlevel = DEFAULSTREAMTCOMPRESSLEVEL);
+                            int compressionlevel = DEFAULTCOMPRESSLEVEL);
 
   // if return code not 0 is error
   static int DecompressString(const std::string& src, std::string& dst);

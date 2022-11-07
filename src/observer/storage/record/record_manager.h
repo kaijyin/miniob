@@ -94,7 +94,11 @@ public:
   }
 
 protected:
-  std::shared_ptr<char>get_record_data(SlotNum slot_num);
+  char *get_record_data(SlotNum slot_num)
+  {
+    TupleOffset offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num);
+    return (frame_->data() + offset);
+  }
   uint32_t get_record_size(SlotNum slot_num)
   {
     TupleOffset pre_offset;
@@ -108,7 +112,7 @@ protected:
   int get_base_key(){
     return page_header_->base_key;
   }
-  void mark_record_data(SlotNum slot_num,const char * data,int record_size){
+  void mark_record(SlotNum slot_num, int record_size){
     /* 从下往上放 */
     /* 注意tuple offset大小,如果page太大需要调大 */
     TupleOffset pre_offset;
@@ -118,8 +122,6 @@ protected:
       pre_offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * (slot_num - 1));
     }
     *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num) = pre_offset - record_size;
-    /* 插入数据 */
-    memcpy(frame_->data() + pre_offset - record_size, data, record_size);
   }
 
 protected:
