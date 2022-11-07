@@ -389,11 +389,11 @@ Operator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
 
   if(index->type() == IndexType::BinarySearch){
     int key = *(int *)left_cell->data();
-    return {new BinIndexScanOperator(table, index, key)};
+    return new BinIndexScanOperator(table, index, key);
   }
   if(index->type() == IndexType::Hash){
     int key = *(int *)left_cell->data();
-    return {new HashIndexScanOperator(table, index, key)};
+    return new HashIndexScanOperator(table, index, key);
   }
   /* todo(yin):看一下小端存储对不对 */
   IndexScanOperator *oper = new IndexScanOperator(table, index,

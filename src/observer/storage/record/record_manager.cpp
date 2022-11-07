@@ -11,6 +11,9 @@ See the Mulan PSL v2 for more details. */
 //
 // Created by Meiyi & Longda on 2021/4/13.
 //
+
+#include <string>
+#include <memory>
 #include "storage/record/record_manager.h"
 #include "rc.h"
 #include "common/log/log.h"
@@ -18,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/condition_filter.h"
 #include "util/util.h"
 using namespace common;
+using namespace std;
 
 int align8(int size)
 {
@@ -163,16 +167,17 @@ RC RecordPageHandler::cleanup()
 RC RecordPageHandler::insert_record(const char *data,int record_size, RID *rid){
   record_size -= pre_fex_byte_;
   uint16_t val = uint16_t((*(int *)data) - page_header_->base_key);
+  static char temp_record[80];
+  memcpy(temp_record, &val, sizeof(val));
+  memcpy(temp_record + pre_fex_byte_, data + 4, record_size - pre_fex_byte_);
+  string str_out;
+  Util::CompressString(string(temp_record, record_size), str_out);
+  record_size = str_out.size();
+  
   page_header_->record_num++;
   page_header_->last_capacity -= record_size + 4;
   int index = page_header_->record_num - 1;
-    /* todo(yin)是否需要对8字节对齐 */
-  mark_record(index, record_size);
-  char *record_data = get_record_data(index);
-  memcpy(record_data, &val, sizeof(val));
-  memcpy(record_data + pre_fex_byte_, data + 4, record_size - pre_fex_byte_);
-
-
+  mark_record_data(index, str_out.data(), record_size);
   frame_->mark_dirty();
 
   if (rid) {
@@ -188,8 +193,8 @@ std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(std::function<b
   std::vector<Record> records;
   Record record;
   for (SlotNum i = 0; i < page_header_->record_num; i++) {
-    char *data = get_record_data(i);
-    if(filter(data,pre_fex_byte_)){
+    shared_ptr<char> data = get_record_data(i);
+    if(filter(data.get(),pre_fex_byte_)){
       RID rid(get_page_num(), i);
       get_record(&rid, &record);
       records.push_back(record);
@@ -203,18 +208,18 @@ std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(int key){
   int base_key = page_header_->base_key;
   while(left<right){
     SlotNum mid = (left + right) >> 1;
-    char *record_data = get_record_data(mid);
+    shared_ptr<char> record_data = get_record_data(mid);
     int val = 0;
-    decode_val(record_data, 0, &val, pre_fex_byte_ * 8);
+    decode_val(record_data.get(), 0, &val, pre_fex_byte_ * 8);
     if (val+base_key < key) {
       left = mid + 1;
     } else {
       right = mid;
     }
   }
-  char *record_data = get_record_data(left);
+  shared_ptr<char> record_data = get_record_data(left);
   int val = 0;
-  decode_val(record_data, 0, &val, pre_fex_byte_ * 8);
+  decode_val(record_data.get(), 0, &val, pre_fex_byte_ * 8);
   if (val+base_key != key) {
     /* 不存在这个key的tuple */
     return {RC::SUCCESS, {}};
@@ -226,9 +231,9 @@ std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(int key){
   records.push_back(record);
   left++;
   while (left < page_header_->record_num) {
-    char *record_data = get_record_data(left);
+    shared_ptr<char> record_data = get_record_data(left);
     int val = 0;
-    decode_val(record_data, 0, &val, pre_fex_byte_ * 8);
+    decode_val(record_data.get(), 0, &val, pre_fex_byte_ * 8);
     if (val+base_key != key) {
       break;
     } else {
@@ -314,6 +319,15 @@ RC RecordPageHandler::delete_record(const RID *rid)
 	//       rid->slot_num, frame_->page_num());
   //   return RC::RECORD_RECORD_NOT_EXIST;
   // }
+}
+
+std::shared_ptr<char> RecordPageHandler::get_record_data(SlotNum slot_num){
+  TupleOffset offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num);
+  char *compressed_data = (frame_->data() + offset);
+  int record_size = get_record_size(slot_num);
+  string str_out;
+  Util::DecompressString(string(compressed_data, record_size), str_out);
+  return shared_ptr<char>(strdup(str_out.c_str()));
 }
 
 RC RecordPageHandler::get_record(const RID *rid, Record *rec)

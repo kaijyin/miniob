@@ -225,28 +225,27 @@ RC Table::commit_insert(Trx *trx, const RID &rid)
 RC Table::rollback_insert(Trx *trx, const RID &rid)
 {
 
-  Record record;
-  RC rc = record_handler_->get_record(&rid, &record);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to get record %s: %s", this->name(), rid.to_string().c_str());
-    return rc;
-  }
+  // Record record;
+  // RC rc = record_handler_->get_record(&rid, &record);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Failed to get record %s: %s", this->name(), rid.to_string().c_str());
+  //   return rc;
+  // }
 
-  // remove all indexes
-  rc = delete_entry_of_indexes(record.data(), rid, false);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to delete indexes of record(rid=%d.%d) while rollback insert, rc=%d:%s",
-        rid.page_num,
-        rid.slot_num,
-        rc,
-        strrc(rc));
-    return rc;
-  }
+  // // remove all indexes
+  // rc = delete_entry_of_indexes(record.data(), rid, false);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Failed to delete indexes of record(rid=%d.%d) while rollback insert, rc=%d:%s",
+  //       rid.page_num,
+  //       rid.slot_num,
+  //       rc,
+  //       strrc(rc));
+  //   return rc;
+  // }
 
-  rc = record_handler_->delete_record(&rid);
-  return rc;
+  // rc = record_handler_->delete_record(&rid);
+  return RC::SUCCESS;
 }
-
 
 RC Table::insert_record(Trx *trx, Record *record)
 {
@@ -342,10 +341,9 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
   }
 
   Record record;
-  record.set_data(record_data);
+  record.set_data(shared_ptr<char>(record_data));
   record.set_size(record_size);
   rc = insert_record(trx, &record);
-  delete[] record_data;
   return rc;
 }
 

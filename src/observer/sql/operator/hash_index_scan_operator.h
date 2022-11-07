@@ -56,8 +56,8 @@ public:
 private:
   const Table *table_ = nullptr;
   Index *index_ = nullptr;
-  RecordFileHandler *record_handler_ = nullptr;
   int key_;
+  RecordFileHandler *record_handler_ = nullptr;
   std::vector<Record> records_;
   int current_record_;
   RowTuple tuple_;
