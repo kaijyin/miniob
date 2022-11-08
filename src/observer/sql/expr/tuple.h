@@ -190,58 +190,58 @@ public:
       }
       int val = 0;
       if (i == 0) {
-        uint16_t val = *(uint16_t *)(record_->data());
+        uint8_t val = *(uint8_t *)(record_->data()+record_->offset()/8);
         int v = record_->base_key() + val;
         os << v;
         continue;
       }
       if (i == 1) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         os << val / 11;
         continue;
       }
       if (i == 2) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(),record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         os << val / (11 * 101);
         continue;
       }
       if (i == 3) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         os << val % 11;
         continue;
       }
       if (i == 4) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         os << (val % (11 * 101)) / 11;
         continue;
       }
       if (i == 5) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         float res = (float)val / 100.0;
         os << double2string(res);
         continue;
       }
       if (i == 6 || i == 7) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         double v = (double)(val % 11) / 100.0;
         os << double2string(v);
         continue;
       }
 
       if (i == 8) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val = (val % (enum_col9_num * enum_col14_num)) / enum_col14_num;
         os << enum_col9[val];
         continue;
       }
       if (i == 9) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val = (val % (enum_col10_num * enum_col15_num)) / enum_col15_num;
         os << enum_col10[val];
         continue;
       }
       if (i == 10) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val /= 11;
         int year = 1990 + val / (32 * 13);
         int month = (val % (32 * 13)) / 32;
@@ -251,7 +251,7 @@ public:
         continue;
       }
       if (i == 11) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val /= enum_col9_num * enum_col14_num;
         int year = 1990 + val / (32 * 13);
         int month = (val % (32 * 13)) / 32;
@@ -261,7 +261,7 @@ public:
         continue;
       }
       if(i==12){
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val /= enum_col10_num * enum_col15_num;
         int year = 1990 + val / (32 * 13);
         int month = (val % (32 * 13)) / 32;
@@ -271,29 +271,28 @@ public:
         continue;
       }
       if (i == 13) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val = val % enum_col14_num;
         os << enum_col14[val];
         continue;
       }
       if (i == 14) {
-        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(),record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val %= enum_col15_num;
         os << enum_col15[val];
         continue;
       }
       if (i == 15) {
         /* 哈夫曼解码 */
-        char *code = record_->data() + (field_meta->offset()/ 8)-pre_fex_byte_;
-        int len = record_->size() - field_meta->offset() / 8;
-        std::string word = table_->get_huffman()->decode(code, len);
+        int offset = record_->offset() + field_meta->offset() - pre_fex_byte_ * 8;
+        std::string word = table_->get_huffman()->decode(record_->data(), offset);
         os << word;
         continue;
       }
     }
   }
 private:
-  static const int pre_fex_byte_ = 2;
+  static const int pre_fex_byte_ = 3;
   Record *record_ = nullptr;
   const Table *table_ = nullptr;
   std::vector<TupleCellSpec *> speces_;

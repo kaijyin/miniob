@@ -23,8 +23,9 @@ class ConditionFilter;
 
 struct PageHeader {
   int32_t base_key;
-  int32_t last_capacity;        // 用掉的容量
-  int32_t record_num;           // 当前页面记录的个数
+  int32_t last_record_key;
+  int32_t capacity;        // 剩余容量
+  // int32_t record_num;           // 当前页面记录的个数
 };
 
 class RecordPageHandler;
@@ -46,7 +47,7 @@ private:
   RecordPageHandler *record_page_handler_ = nullptr;
   PageNum page_num_ = BP_INVALID_PAGE_NUM;
   // common::Bitmap  bitmap_;
-  SlotNum next_slot_num_ = 0;
+  // SlotNum next_slot_num_ = 0;
 };
 
 class RecordPageHandler {
@@ -64,8 +65,8 @@ public:
   RC recover_insert_record(const char *data, RID *rid);
   RC update_record(const Record *rec);
 
-  std::pair<RC, std::vector<Record>> get_records(int key);
-  std::pair<RC, std::vector<Record>> get_records(std::function<bool(char *record_data,int pre_fex_byte)>filter);
+  // std::pair<RC, std::vector<Record>> get_records(int key);
+  std::pair<RC, std::vector<Record>> get_records(std::function<bool(char *frame_data,int &data_offset,int pre_fex_bits,int pre_key)>filter);
   template <class RecordUpdater>
   RC update_record_in_place(const RID *rid, RecordUpdater updater)
   {
@@ -87,46 +88,46 @@ public:
 
   // bool is_full() const;
   bool can_insert(int record_size) const;
-  int record_num(){
-    if(page_header_==nullptr)
-      return 0;
-    return page_header_->record_num;
-  }
+  // int record_num(){
+  //   if(page_header_==nullptr)
+  //     return 0;
+  //   // return page_header_->record_num;
+  // }
 
 protected:
-  char *get_record_data(SlotNum slot_num)
-  {
-    TupleOffset offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num);
-    return (frame_->data() + offset);
-  }
-  uint32_t get_record_size(SlotNum slot_num)
-  {
-    TupleOffset pre_offset;
-    if (slot_num == 0) {
-      pre_offset = BP_PAGE_DATA_SIZE;
-    } else {
-      pre_offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * (slot_num - 1));
-    }
-    return pre_offset - (*(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num));
-  }
+  // char *get_record_data(SlotNum slot_num)
+  // {
+  //   TupleOffset offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num);
+  //   return (frame_->data() + offset);
+  // }
+  // uint32_t get_record_size(SlotNum slot_num)
+  // {
+  //   TupleOffset pre_offset;
+  //   if (slot_num == 0) {
+  //     pre_offset = BP_PAGE_DATA_SIZE;
+  //   } else {
+  //     pre_offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * (slot_num - 1));
+  //   }
+  //   return pre_offset - (*(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num));
+  // }
   int get_base_key(){
-    return page_header_->base_key;
+    return page_header_->last_record_key;
   }
-  void mark_record(SlotNum slot_num, int record_size){
-    /* 从下往上放 */
-    /* 注意tuple offset大小,如果page太大需要调大 */
-    TupleOffset pre_offset;
-    if (slot_num == 0) {
-      pre_offset = BP_PAGE_DATA_SIZE;
-    } else {
-      pre_offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * (slot_num - 1));
-    }
-    *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num) = pre_offset - record_size;
-  }
+  // void mark_record(SlotNum slot_num, int record_size){
+  //   /* 从下往上放 */
+  //   /* 注意tuple offset大小,如果page太大需要调大 */
+  //   TupleOffset pre_offset;
+  //   if (slot_num == 0) {
+  //     pre_offset = BP_PAGE_DATA_SIZE;
+  //   } else {
+  //     pre_offset = *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * (slot_num - 1));
+  //   }
+  //   *(TupleOffset *)(frame_->data() + sizeof(PageHeader) + sizeof(TupleOffset) * slot_num) = pre_offset - record_size;
+  // }
 
 protected:
   /* 注意压缩如果调大page,key会不会超界 */
-  static const int pre_fex_byte_ = 2;
+  static const int pre_fex_bits_ = 3 * 8;
   DiskBufferPool *disk_buffer_pool_ = nullptr;
   Frame *frame_ = nullptr;
   PageHeader *page_header_ = nullptr;
@@ -164,8 +165,8 @@ public:
    */
   RC get_record(const RID *rid, Record *rec);
 
-  std::pair < RC, std::vector<Record>> get_records(int key, const std::vector<PageNum> &pages);
-  std::pair<RC, std::vector<Record>> get_records(const std::vector<PageNum> &pages, std::function<bool(char *record_data,int pre_fex_byte)>filter);
+  // std::pair < RC, std::vector<Record>> get_records(int key, const std::vector<PageNum> &pages);
+  std::pair<RC, std::vector<Record>> get_records(const std::vector<PageNum> &pages, std::function<bool(char *frame_data,int &offset, int pre_fex_bits,int pre_key)>filter);
 
   template <class RecordUpdater>  // 改成普通模式, 不使用模板
   RC update_record_in_place(const RID *rid, RecordUpdater updater)

@@ -159,15 +159,14 @@ public:
     return res;
   }
 
-  string decode(const char *code,int len){
-    static int count = 0;
-    count++;
-    int offset = 0;
+  string decode(const char *code,int &offset){
     string res;
     string p;
     while((p=decode_into_word(code,offset))!="\0"){
       res.append(p);
     }
+    /* 一字节对齐 */
+    offset = offset % 8 == 0 ? offset : (offset / 8 + 1) * 8;
     return res;
   }
 

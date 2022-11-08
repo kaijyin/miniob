@@ -55,11 +55,10 @@ public:
     return RC::SUCCESS;
   }
 
-  RC insert_entry(const char *record, const RID *rid,int pre_fex_byte=0,int base_key=0)override{
+  RC insert_entry(const char *record, const RID *rid)override{
     /* key */
     int key = 0;
-    decode_val(record, field_meta_.offset(), &key, field_meta_.len() - pre_fex_byte * 8);
-    key += base_key;
+    decode_val(record, field_meta_.offset(), &key, field_meta_.len());
     PageNum page_num = rid->page_num;
     while(page_max_keys_.size()<=(size_t)page_num){
       page_max_keys_.push_back(0);

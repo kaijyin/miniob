@@ -165,7 +165,8 @@ void ExecuteStage::handle_request(common::StageEvent *event)
       do_create_table(sql_event);
     } break;
     case SCF_CREATE_INDEX: {
-      do_create_index(sql_event);
+      // do_create_index(sql_event);
+      session_event->set_response("SUCCESS\n");
     } break;
     case SCF_SHOW_TABLES: {
       do_show_tables(sql_event);

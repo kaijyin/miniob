@@ -494,9 +494,10 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
     }
     if(i==15){
       /* huffman编码 */
-      std::string code =  huf_->encode((char *)value.data, strlen((char *)value.data));
-      encode_val(record, field->offset(), (void*)code.c_str(), code.size() * 8);
-      record_size = field->offset() / 8 + (int)code.size();
+      auto res =  huf_->encode((char *)value.data, strlen((char *)value.data));
+
+      encode_val(record, field->offset(), (void *)res.c_str(), res.size() * 8);
+      record_size = field->offset() + res.size() * 8;
       continue;
     }
     encode_val(record,field->offset(),value.data,field->len());
@@ -670,7 +671,7 @@ public:
 
   RC insert_index(const Record *record)
   {
-    return index_->insert_entry(record->data(), &record->rid(), record->pre_fex_byte(), record->base_key());
+    return index_->insert_entry(record->data(), &record->rid());
   }
 
 private:
@@ -774,9 +775,6 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 
   table_meta_.swap(new_table_meta);
   LOG_INFO("Successfully added a new index (%s) on the table (%s)", index_name, name());
-  if(strcmp(index_name,"I_L_SHIPDATE")==0){
-    sync();
-  }
   return rc;
 }
 

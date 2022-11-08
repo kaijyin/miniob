@@ -3,9 +3,10 @@
 #include "sql/operator/operator.h"
 #include "sql/expr/tuple.h"
 #include "storage/index/index.h"
-
-class BinIndexScanOperator : public Operator
-{
+#include "util/util.h"
+#include <string>
+using namespace std;
+class BinIndexScanOperator : public Operator {
 public: 
   BinIndexScanOperator(const Table *table, Index *index,
 		    const int key):table_(table),index_(index),key_(key),
@@ -19,7 +20,17 @@ public:
       return result.first;
     }
 
-    auto res = record_handler_->get_records(key_, result.second);
+    auto res = record_handler_->get_records(
+        result.second, [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key) -> bool {
+          int offset = index_->field_meta().offset();
+          int val = 0;
+          decode_val(frame_data, frame_offset + offset, &val, 4*8-pre_fex_bits);
+          val += pre_key;
+          /* 找最后的一个field */
+          frame_offset += table_->table_meta().field(15)->offset() - pre_fex_bits;
+          table_->get_huffman()->decode(frame_data, frame_offset);
+          return val == key_;
+        });
     if(res.first!= RC::SUCCESS){
       return res.first;
     }

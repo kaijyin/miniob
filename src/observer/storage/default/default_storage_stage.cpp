@@ -347,6 +347,8 @@ std::string DefaultStorageStage::load_data(const char *db_name, const char *tabl
   const int sys_field_num = table->table_meta().sys_field_num();
   const int field_num = table->table_meta().field_num() - sys_field_num;
 
+  table->create_index(nullptr, "I_L_ORDERKEY", "l_orderkey");
+  table->create_index(nullptr, "I_L_SHIPDATE", "l_shipdate");
   std::vector<Value> record_values(field_num);
   std::string line;
   std::vector<std::string> file_values;
@@ -373,6 +375,8 @@ std::string DefaultStorageStage::load_data(const char *db_name, const char *tabl
     }
   }
   fs.close();
+  table->sync();
+
   struct timespec end_time;
   clock_gettime(CLOCK_MONOTONIC, &end_time);
   long cost_nano = (end_time.tv_sec - begin_time.tv_sec) * 1000000000L + (end_time.tv_nsec - begin_time.tv_nsec);

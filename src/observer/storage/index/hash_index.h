@@ -79,10 +79,10 @@ public:
     return RC::SUCCESS;
   }
 
-  RC insert_entry(const char *record, const RID *rid,int pre_fex_byte=0,int base_key=0)override{
+  RC insert_entry(const char *record, const RID *rid)override{
     /* key */
     int key = 0;
-    decode_val(record, field_meta_.offset()-pre_fex_byte*8, &key, field_meta_.len());
+    decode_val(record, field_meta_.offset(), &key, field_meta_.len());
     key /= 11;
     while (blooms_.size() <= rid->page_num) {
       blooms_.emplace_back(BloomFilter());

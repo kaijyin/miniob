@@ -3,6 +3,7 @@
 #include "sql/operator/operator.h"
 #include "sql/expr/tuple.h"
 #include "storage/index/index.h"
+#include "util/util.h"
 
 class HashIndexScanOperator : public Operator
 {
@@ -19,12 +20,14 @@ public:
       return result.first;
     }
 
-    auto res = record_handler_->get_records(result.second, [&](char *record_data, int pre_fex_byte) -> bool {
+    auto res = record_handler_->get_records(result.second, [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key) -> bool{
       int offset = index_->field_meta().offset();
       int len = index_->field_meta().len();
       int key = 0;
-      decode_val(record_data, offset - 8 * pre_fex_byte, &key, len);
+      decode_val(frame_data, frame_offset + offset - pre_fex_bits, &key, len);
       key /= 11;
+      frame_offset += table_->table_meta().field(15)->offset() - pre_fex_bits;
+      table_->get_huffman()->decode(frame_data, frame_offset);
       return key == key_;
     });
     if(res.first!= RC::SUCCESS){

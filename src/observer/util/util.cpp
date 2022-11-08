@@ -52,6 +52,7 @@ void encode_val(void *ptr, int offset,void* v,int bit){
     memcpy(p, val, bit / 8);
     return;
   }
+  /* todo(yin):这样会不会超时 */
   int now = 0;
   while (now <bit) {
     int cur_bit = (val[now / 8] & (1 << (now % 8))) == 0 ? 0 : 1;

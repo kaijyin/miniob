@@ -29,11 +29,15 @@ class Field;
 struct RID {
   PageNum page_num;  // record's page number
   SlotNum slot_num;  // record's slot number
+  int offset;
   // bool    valid;    // true means a valid record
 
   RID() = default;
   RID(const PageNum _page_num, const SlotNum _slot_num)
     : page_num(_page_num), slot_num(_slot_num)
+  {}
+  RID(const PageNum _page_num, const int _offset)
+    : page_num(_page_num), offset(_offset)
   {}
 
   const std::string to_string() const
@@ -94,6 +98,9 @@ public:
 
   void set_rid(const RID &rid) { this->rid_ = rid; }
   void set_rid(const PageNum page_num, const SlotNum slot_num) { this->rid_.page_num = page_num; this->rid_.slot_num = slot_num; }
+  int  offset(){
+    return rid_.offset;
+  }
   RID & rid() { return rid_; }
   const RID &rid() const { return rid_; };
   void set_size(int size){
@@ -109,16 +116,16 @@ public:
     return base_key_;
   }
   int pre_fex_byte()const{
-    return pre_fex_byte_;
+    return pre_fex_bits_;
   }
 
 private:
-  static const int pre_fex_byte_ = 2;
+  static const int pre_fex_bits_ = 3 * 8;
   RID rid_;
 
   // the data buffer
   // record will not release the memory
-  char *                         data_ = nullptr;
+  char *         data_ = nullptr;
   int length_ = 0;
   int base_key_ = 0;
 };
