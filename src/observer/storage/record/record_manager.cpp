@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/bitmap.h"
 #include "storage/common/condition_filter.h"
 #include "util/util.h"
+#include "util/threadpool/threadpool.h"
 using namespace common;
 using namespace std;
 int align8(int size)
@@ -358,7 +359,6 @@ RC RecordFileHandler::init(DiskBufferPool *buffer_pool)
   }
 
   disk_buffer_pool_ = buffer_pool;
-
   RC rc = init_free_pages();
 
   LOG_INFO("open record file handle done. rc=%s", strrc(rc));
@@ -493,23 +493,32 @@ RC RecordFileHandler::delete_record(const RID *rid)
 
 std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(const std::vector<PageNum> &pages, std::function<bool(char *frame_data,int &offset, int pre_fex_bits,int pre_key)>filter){
   RC ret = RC::SUCCESS;
-  std::vector<Record> result;
+  vector<future<pair<RC,vector<Record>>>> results;
   for (auto page_num : pages) {
-
-    RecordPageHandler page_handler;
-    if ((ret != page_handler.init(*disk_buffer_pool_, page_num)) != RC::SUCCESS) {
-      LOG_ERROR("Failed to init record page handler.page number=%d", page_num);
-      return {ret, {}};
+    results.emplace_back(thread_pool_.commit([=]() -> std::pair<RC, std::vector<Record>> {
+      RecordPageHandler page_handler;
+      if ((ret != page_handler.init(*disk_buffer_pool_, page_num)) != RC::SUCCESS) {
+        LOG_ERROR("Failed to init record page handler.page number=%d", page_num);
+        return {ret, {}};
+      }
+      auto res = page_handler.get_records(filter);
+      if (res.first != RC::SUCCESS) {
+        return {res.first, {}};
+      }
+      return res;
+    }));
+  }
+  vector<Record> res;
+  for (auto &result : results) {
+    auto ret = result.get();
+    if(ret.first!=RC::SUCCESS){
+      return {ret.first, {}};
     }
-    auto res = page_handler.get_records(filter);
-    if (res.first != RC::SUCCESS) {
-      return {res.first, {}};
-    }
-    for (auto &record : res.second) {
-      result.push_back(record);
+    for(auto&record:ret.second){
+      res.push_back(record);
     }
   }
-  return {RC::SUCCESS, result};
+  return {RC::SUCCESS, res};
 }
 // std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(int key, const std::vector<PageNum> &pages){
 //   RC ret = RC::SUCCESS;

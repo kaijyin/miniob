@@ -58,6 +58,7 @@ RC BPFrameManager::cleanup()
 
 Frame *BPFrameManager::begin_purge()
 {
+  std::lock_guard<std::mutex> lock_guard(lock_);
   Frame *frame_can_purge = nullptr;
   auto purge_finder = [&frame_can_purge](const BPFrameId &frame_id, Frame * const frame) {
     if (frame->can_purge()) {
@@ -378,7 +379,7 @@ RC DiskBufferPool::purge_frame(PageNum page_num, Frame *buf)
   }
 
   LOG_DEBUG("Successfully purge frame =%p, page %d of %d(file desc)", buf, buf->page_num(), buf->file_desc_);
-  frame_manager_.free(file_desc_, page_num, buf);
+  if(!buf->dirty_) frame_manager_.free(file_desc_, page_num, buf);
   return RC::SUCCESS;
 }
 
@@ -445,6 +446,7 @@ RC DiskBufferPool::check_all_pages_unpinned()
 
 RC DiskBufferPool::flush_compressed_page(const std::string &data,int64_t offset){
 
+
   if (lseek(file_desc_, offset, SEEK_SET) == offset - 1) {
     LOG_ERROR("Failed to flush page %lld of %d due to failed to seek %s.", offset, file_desc_, strerror(errno));
     return RC::IOERR_SEEK;
@@ -462,6 +464,7 @@ RC DiskBufferPool::flush_page(Frame &frame)
 {
   // The better way is use mmap the block into memory,
   // so it is easier to flush data to file.
+  lock_guard<mutex> _(mutex_);
 
   Page &page = frame.page_;
   s64_t offset = frame.page_num() == BP_HEADER_PAGE ? 0 : file_header_->page_offset[frame.page_num() - 1];
@@ -553,6 +556,8 @@ RC DiskBufferPool::allocate_frame(PageNum page_num, Frame **buffer)
         LOG_ERROR("Failed to aclloc block due to failed to flush old block.");
         return rc;
       }
+    }
+    if(!frame->dirty_){
       frame_manager_.free(frame->file_desc(), frame->page_num(), frame);
     }
   }
@@ -574,6 +579,7 @@ RC DiskBufferPool::check_page_num(PageNum page_num)
 
 RC DiskBufferPool::load_compress_page(string &data,int64_t offset,int64_t size)
 {
+
   data.resize(size);
   if (lseek(file_desc_, offset, SEEK_SET) == -1) {
     return RC::IOERR_SEEK;
@@ -589,11 +595,13 @@ RC DiskBufferPool::load_compress_page(string &data,int64_t offset,int64_t size)
 
 RC DiskBufferPool::load_page(PageNum page_num, Frame *frame)
 {
+  /* 防止多线程同时读取 */
+  lock_guard<mutex> _(mutex_);
   s64_t offset = page_num == BP_HEADER_PAGE ? 0 : file_header_->page_offset[page_num - 1];
   s64_t size = page_num == BP_HEADER_PAGE ? BP_PAGE_SIZE : file_header_->page_offset[page_num] - offset;
   string str_in, str_out;
   RC rc;
-  if((rc = load_compress_page(str_in, offset, size))!= RC::SUCCESS){
+  if ((rc = load_compress_page(str_in, offset, size)) != RC::SUCCESS) {
     return rc;
   }
   if(page_num==BP_HEADER_PAGE){

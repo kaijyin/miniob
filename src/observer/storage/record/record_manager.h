@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/default/disk_buffer_pool.h"
 #include "storage/record/record.h"
 #include "common/lang/bitmap.h"
+#include "util/threadpool/threadpool.h"
 
 class ConditionFilter;
 
@@ -45,7 +46,7 @@ public:
   }
 private:
   RecordPageHandler *record_page_handler_ = nullptr;
-  PageNum page_num_ = BP_INVALID_PAGE_NUM;
+  // PageNum page_num_ = BP_INVALID_PAGE_NUM;
   // common::Bitmap  bitmap_;
   // SlotNum next_slot_num_ = 0;
 };
@@ -186,7 +187,8 @@ private:
   
 private:
   DiskBufferPool *disk_buffer_pool_ = nullptr;
-  std::unordered_set<PageNum>  free_pages_; // 没有填充满的页面集合
+  std::ThreadPool thread_pool_;
+  std::unordered_set<PageNum> free_pages_;  // 没有填充满的页面集合
 };
 
 class RecordFileScanner {

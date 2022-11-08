@@ -308,6 +308,7 @@ private:
   BPFrameManager &   frame_manager_;
   std::string        file_name_;
   int                file_desc_ = -1;
+  std::mutex mutex_; /* 保护file读取与写*/
   Frame *            hdr_frame_ = nullptr;
   BPFileHeader *     file_header_ = nullptr;
   std::set<PageNum>  disposed_pages;
