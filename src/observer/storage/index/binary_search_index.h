@@ -15,6 +15,7 @@
 #include "util/util.h"
 #include "sql/expr/tuple_cell.h"
 #include "storage/index/index.h"
+#include <mutex>
 
 
 class BinarySearchIndex : public Index {
@@ -56,6 +57,7 @@ public:
   }
 
   RC insert_entry(const char *record, const RID *rid)override{
+    std::lock_guard<std::mutex> _(mutex_);
     /* key */
     int key = 0;
     decode_val(record, field_meta_.offset(), &key, field_meta_.len());
@@ -68,7 +70,8 @@ public:
   }
   
   RC insert_entry(int key, int page_num)override{
-    while(page_max_keys_.size()<=(size_t)page_num){
+    std::lock_guard<std::mutex> _(mutex_);
+    while (page_max_keys_.size() <= (size_t)page_num) {
       page_max_keys_.push_back(0);
     }
     page_max_keys_[page_num] = page_max_keys_[page_num] > key ? page_max_keys_[page_num] : key;
@@ -119,6 +122,7 @@ public:
   }
 
 private:
+  std::mutex mutex_;
   const char *file_name_ = nullptr;
   std::vector<int> page_max_keys_;
 };

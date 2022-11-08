@@ -4,7 +4,7 @@
 #include "MurmurHash3.h"
 #include "xxhash.h"
 
-const static int bloom_filter_size = 400;
+const static int bloom_filter_size = 500;
 class BloomFilter {
 public:
     BloomFilter () {

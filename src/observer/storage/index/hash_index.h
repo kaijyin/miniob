@@ -81,6 +81,7 @@ public:
 
   RC insert_entry(const char *record, const RID *rid)override{
     /* key */
+    std::lock_guard<std::mutex> _(mutex_);
     int key = 0;
     decode_val(record, field_meta_.offset(), &key, field_meta_.len());
     key /= 11;
@@ -91,6 +92,7 @@ public:
     return RC::SUCCESS;
   }
   RC insert_entry(int key, int page_num)override{
+    std::lock_guard<std::mutex> _(mutex_);
     while (blooms_.size() <= page_num) {
       blooms_.emplace_back(BloomFilter());
     }
@@ -142,6 +144,7 @@ public:
   }
 
 private:
+  std::mutex mutex_;
   const char *file_name_ = nullptr;
   std::vector<BloomFilter> blooms_;
 };
