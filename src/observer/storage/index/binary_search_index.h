@@ -66,6 +66,14 @@ public:
     page_max_keys_[page_num] = page_max_keys_[page_num] > key ? page_max_keys_[page_num] : key;
     return RC::SUCCESS;
   }
+  
+  RC insert_entry(int key, int page_num)override{
+    while(page_max_keys_.size()<=(size_t)page_num){
+      page_max_keys_.push_back(0);
+    }
+    page_max_keys_[page_num] = page_max_keys_[page_num] > key ? page_max_keys_[page_num] : key;
+    return RC::SUCCESS;
+  }
   RC delete_entry(const char *record, const RID *rid)override{
     return RC::UNIMPLENMENT;
   }

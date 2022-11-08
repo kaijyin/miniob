@@ -726,10 +726,44 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
     return rc;
   }
-
   // 遍历当前的所有数据，插入这个索引
-  IndexInserter index_inserter(index);
-  rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
+  auto l_orderkey_func = [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key, int page_num) -> bool {
+    int offset = index->field_meta().offset();
+    int val = 0;
+    decode_val(frame_data, frame_offset + offset, &val, 4 * 8 - pre_fex_bits);
+    val += pre_key;
+    index->insert_entry(val, page_num);
+    frame_offset += table_meta_.field(15)->offset() - pre_fex_bits;
+    huf_->decode(frame_data, frame_offset);
+    return false;
+  };
+
+  auto l_shipdate_func = [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key, int page_num) -> bool {
+    int offset = index->field_meta().offset();
+    int len = index->field_meta().len();
+    int key = 0;
+    decode_val(frame_data, frame_offset + offset - pre_fex_bits, &key, len);
+    key /= 11;
+    index->insert_entry(key, page_num);
+    frame_offset += table_meta_.field(15)->offset() - pre_fex_bits;
+    huf_->decode(frame_data, frame_offset);
+    return false;
+  };
+  // IndexInserter index_inserter(index);
+  // rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
+  std::vector<PageNum> pages;
+  int page_count;
+  data_buffer_pool_->get_page_count(&page_count);
+  for (PageNum i = 1; i < page_count;i++){
+    pages.push_back(i);
+  }
+  std::pair<RC, std::vector<Record>> res;
+  if (strcmp(index_name, "I_L_ORDERKEY") == 0) {
+    res = record_handler_->get_records(pages, l_orderkey_func);
+  } else if (strcmp(index_name, "I_L_SHIPDATE") == 0) {
+    res = record_handler_->get_records(pages, l_shipdate_func);
+  }
+  rc = res.first;
   if (rc != RC::SUCCESS) {
     // rollback
     delete index;
@@ -771,6 +805,10 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
         errno,
         strerror(errno));
     return RC::IOERR;
+  }
+
+  if(strcmp(index_name, "I_L_SHIPDATE") == 0){
+    sync();
   }
 
   table_meta_.swap(new_table_meta);

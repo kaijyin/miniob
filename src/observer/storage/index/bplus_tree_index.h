@@ -28,6 +28,9 @@ public:
   RC close() override;
 
   RC insert_entry(const char *record, const RID *rid) override;
+  RC insert_entry(int key, int page_num)override{
+    return RC::UNIMPLENMENT;
+  }
   RC delete_entry(const char *record, const RID *rid) override;
 
   /**

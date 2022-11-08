@@ -185,7 +185,7 @@ RC RecordPageHandler::insert_record(const char *data,int record_size, RID *rid){
   return RC::SUCCESS;
 }
 
-std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(std::function<bool(char *frame_data,int &offset, int pre_fex_bits,int pre_key)>filter){
+std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(std::function<bool(char *frame_data,int &offset, int pre_fex_bits,int pre_key,int page_num)>filter){
   std::vector<Record> records;
   Record rec;
   int offset = sizeof(PageHeader) * 8;
@@ -194,7 +194,7 @@ std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(std::function<b
   while (offset < BP_PAGE_DATA_SIZE*8 - page_header_->capacity) {
     pre_offset = offset;
     uint8_t val = *(uint8_t *)(frame_->data() + offset / 8);
-    if (filter(frame_->data(), offset, pre_fex_bits_, pre_key)) {
+    if (filter(frame_->data(), offset, pre_fex_bits_, pre_key,get_page_num())) {
       rec.set_rid(RID(get_page_num(), pre_offset));
       rec.set_data(frame_->data());
       rec.set_base_key(pre_key);
@@ -491,7 +491,7 @@ RC RecordFileHandler::delete_record(const RID *rid)
   return rc;
 }
 
-std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(const std::vector<PageNum> &pages, std::function<bool(char *frame_data,int &offset, int pre_fex_bits,int pre_key)>filter){
+std::pair<RC, std::vector<Record>> RecordFileHandler::get_records(const std::vector<PageNum> &pages, std::function<bool(char *frame_data,int &offset, int pre_fex_bits,int pre_key,int page_num)>filter){
   RC ret = RC::SUCCESS;
   vector<future<pair<RC,vector<Record>>>> results;
   for (auto page_num : pages) {

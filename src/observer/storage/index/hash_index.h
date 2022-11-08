@@ -90,6 +90,13 @@ public:
     blooms_[rid->page_num].Set(std::string((char *)&key, sizeof(key)));
     return RC::SUCCESS;
   }
+  RC insert_entry(int key, int page_num)override{
+    while (blooms_.size() <= page_num) {
+      blooms_.emplace_back(BloomFilter());
+    }
+    blooms_[page_num].Set(std::string((char *)&key, sizeof(key)));
+    return RC::SUCCESS;
+  }
   RC delete_entry(const char *record, const RID *rid)override{
     return RC::UNIMPLENMENT;
   }

@@ -20,7 +20,7 @@ public:
       return result.first;
     }
 
-    auto res = record_handler_->get_records(result.second, [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key) -> bool{
+    auto res = record_handler_->get_records(result.second, [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key,int page_num) -> bool{
       int offset = index_->field_meta().offset();
       int len = index_->field_meta().len();
       int key = 0;
