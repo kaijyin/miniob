@@ -162,6 +162,9 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
 
   base_dir_ = base_dir;
 
+  huf_ = new Huffman();
+  huf_->deserialize(table_huf_file(base_dir, table_meta_.name()));
+  
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_.index(i);
@@ -200,12 +203,43 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
     }
     indexes_.push_back(index);
   }
+  Index *l_orderkey_index=nullptr,*l_shipdate_index=nullptr;
+  if(strcmp(indexes_[0]->index_meta().name(),"I_L_ORDERKEY")==0){
+    l_orderkey_index = indexes_[0];
+    l_shipdate_index = indexes_[1];
+  }else{
+    l_shipdate_index = indexes_[0];
+    l_orderkey_index = indexes_[1];
+  }
+  // 遍历当前的所有数据，插入这个索引
+  auto insert_func = [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key, int page_num) -> bool {
+    int l_orderkey_offset = l_orderkey_index->field_meta().offset();
+    int l_orderkey_key = 0;
+    decode_val(frame_data, frame_offset + l_orderkey_offset, &l_orderkey_key, 4 * 8 - pre_fex_bits);
+    l_orderkey_key += pre_key;
+    l_orderkey_index->insert_entry(l_orderkey_key, page_num);
+
+    int l_shipdate_offset = l_shipdate_index->field_meta().offset();
+    int l_shipdate_key = 0;
+    decode_val(frame_data, frame_offset + l_shipdate_offset - pre_fex_bits, &l_shipdate_key, l_shipdate_index->field_meta().len());
+    l_shipdate_key /= 11;
+    l_shipdate_index->insert_entry(l_shipdate_key, page_num);
+
+    frame_offset += table_meta_.field(15)->offset() - pre_fex_bits;
+    huf_->decode(frame_data, frame_offset);
+    return false;
+  };
+  std::vector<PageNum> pages;
+  int page_count;
+  data_buffer_pool_->get_page_count(&page_count);
+  for (PageNum i = 1; i < page_count;i++){
+    pages.push_back(i);
+  }
+  record_handler_->get_records(pages, insert_func);
 
   if (clog_manager_ == nullptr) {
     clog_manager_ = clog_manager;
   }
-  huf_ = new Huffman();
-  huf_->deserialize(table_huf_file(base_dir, table_meta_.name()));
 
   return rc;
 }
@@ -751,19 +785,19 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   };
   // IndexInserter index_inserter(index);
   // rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
-  std::vector<PageNum> pages;
-  int page_count;
-  data_buffer_pool_->get_page_count(&page_count);
-  for (PageNum i = 1; i < page_count;i++){
-    pages.push_back(i);
-  }
-  std::pair<RC, std::vector<Record>> res;
-  if (strcmp(index_name, "I_L_ORDERKEY") == 0) {
-    res = record_handler_->get_records(pages, l_orderkey_func);
-  } else if (strcmp(index_name, "I_L_SHIPDATE") == 0) {
-    res = record_handler_->get_records(pages, l_shipdate_func);
-  }
-  rc = res.first;
+  // std::vector<PageNum> pages;
+  // int page_count;
+  // data_buffer_pool_->get_page_count(&page_count);
+  // for (PageNum i = 1; i < page_count;i++){
+  //   pages.push_back(i);
+  // }
+  // std::pair<RC, std::vector<Record>> res;
+  // if (strcmp(index_name, "I_L_ORDERKEY") == 0) {
+  //   res = record_handler_->get_records(pages, l_orderkey_func);
+  // } else if (strcmp(index_name, "I_L_SHIPDATE") == 0) {
+  //   res = record_handler_->get_records(pages, l_shipdate_func);
+  // }
+  // rc = res.first;
   if (rc != RC::SUCCESS) {
     // rollback
     delete index;

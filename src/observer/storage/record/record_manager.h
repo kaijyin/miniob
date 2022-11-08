@@ -95,6 +95,10 @@ public:
   //   // return page_header_->record_num;
   // }
 
+  Frame* get_frame(){
+    return frame_;
+  }
+
 protected:
   // char *get_record_data(SlotNum slot_num)
   // {

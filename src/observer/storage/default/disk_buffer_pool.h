@@ -35,7 +35,7 @@ class DiskBufferPool;
 
 //
 #define BP_INVALID_PAGE_NUM (-1)
-#define BP_PAGE_SIZE (1 << 16)
+#define BP_PAGE_SIZE (1 << 15)
 #define BP_PAGE_DATA_SIZE (BP_PAGE_SIZE - sizeof(PageNum))
 #define BP_FILE_SUB_HDR_SIZE (sizeof(BPFileSubHeader))
 
@@ -55,9 +55,9 @@ struct Page {
 struct BPFileHeader {
   int32_t page_count;        //! 当前文件一共有多少个页面
   int32_t flush_count;
-  int64_t page_offset[0];
+  uint32_t page_offset[0];
 
-  static const int MAX_PAGE_NUM = (BP_PAGE_DATA_SIZE - sizeof(page_count)-sizeof(flush_count)) / sizeof(int64_t);
+  static const int MAX_PAGE_NUM = (BP_PAGE_DATA_SIZE - sizeof(page_count)-sizeof(flush_count)) / sizeof(uint32_t);
 };
 
 class Frame

@@ -421,6 +421,8 @@ RC RecordFileHandler::insert_record(const char *data, int record_size, RID *rid)
     }
     record_page_handler.cleanup();
     free_pages_.erase(free_pages_.begin());
+    /* 满了的直接刷盘 */
+    disk_buffer_pool_->flush_page(*record_page_handler.get_frame());
   }
 
   // 找不到就分配一个新的页面

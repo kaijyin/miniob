@@ -26,30 +26,30 @@ public:
 
   RC create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)override{
 
-    file_name_ = strdup(file_name);
+    // file_name_ = strdup(file_name);
     Index::init(index_meta, field_meta);
-    int fd = ::open(file_name, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
-    if (fd < 0) {
-      LOG_ERROR("Failed to create %s, due to %s.", file_name, strerror(errno));
-      return RC::SCHEMA_DB_EXIST;
-    }
-    ::close(fd);
+    // int fd = ::open(file_name, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
+    // if (fd < 0) {
+    //   LOG_ERROR("Failed to create %s, due to %s.", file_name, strerror(errno));
+    //   return RC::SCHEMA_DB_EXIST;
+    // }
+    // ::close(fd);
     return RC::SUCCESS;
   }
   RC open(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)override{
-    if(Util::DepressFile(file_name)!=0){
-      return RC::ABORT;
-    }
-    file_name_ = strdup(file_name);
+    // if(Util::DepressFile(file_name)!=0){
+    //   return RC::ABORT;
+    // }
+    // file_name_ = strdup(file_name);
     Index::init(index_meta, field_meta);
-    std::ifstream in(file_name,std::ios_base::binary);
-    /* 从文件中读取数据 */
-    int key;
-    while(!in.eof()){
-      in.read((char *)&key, sizeof(key));
-      page_max_keys_.push_back(key);
-    }
-    in.close();
+    // std::ifstream in(file_name,std::ios_base::binary);
+    // /* 从文件中读取数据 */
+    // int key;
+    // while(!in.eof()){
+    //   in.read((char *)&key, sizeof(key));
+    //   page_max_keys_.push_back(key);
+    // }
+    // in.close();
     return RC::SUCCESS;
   }
   RC close()override{
@@ -105,16 +105,16 @@ public:
  }
   RC sync() override{
     /* 一定记得在建索引后sync */
-    std::ofstream out(file_name_,std::ios_base::trunc|std::ios_base::binary);
-    /* 从文件中读取数据 */
-    for (int key:page_max_keys_){
-      out.write((const char*)&key, sizeof(key));
-    }
-    out.flush();
-    out.close();
-    if(Util::CompressFile(file_name_)!=0){
-      return RC::ABORT;
-    }
+    // std::ofstream out(file_name_,std::ios_base::trunc|std::ios_base::binary);
+    // /* 从文件中读取数据 */
+    // for (int key:page_max_keys_){
+    //   out.write((const char*)&key, sizeof(key));
+    // }
+    // out.flush();
+    // out.close();
+    // if(Util::CompressFile(file_name_)!=0){
+    //   return RC::ABORT;
+    // }
     return RC::SUCCESS;
   }
   IndexType type()override{
