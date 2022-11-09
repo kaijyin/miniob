@@ -169,7 +169,12 @@ public:
    * 获取指定文件中标识符为rid的记录内容到rec指向的记录结构中
    */
   RC get_record(const RID *rid, Record *rec);
-
+  
+  int32_t total_page(){
+    int32_t page_num = 0;
+    disk_buffer_pool_->get_page_count(&page_num);
+    return page_num;
+  }
   // std::pair < RC, std::vector<Record>> get_records(int key, const std::vector<PageNum> &pages);
   std::pair<RC, std::vector<Record>> get_records(const std::vector<PageNum> &pages, std::function<bool(char *frame_data,int &offset, int pre_fex_bits,int pre_key,int page_num)>filter);
 

@@ -32,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/index_scan_operator.h"
 #include "sql/operator/binary_index_scan_operator.h"
 #include "sql/operator/hash_index_scan_operator.h"
+#include "sql/operator/table_scan_plus_operator.h"
 #include "sql/operator/predicate_operator.h"
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
@@ -417,7 +418,8 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
   if (nullptr == scan_oper) {
-    scan_oper = new TableScanOperator(select_stmt->tables()[0]);
+    // scan_oper = new TableScanOperator(select_stmt->tables()[0]);
+    scan_oper = new TableScanPlusOperator(select_stmt->tables()[0]);
   }
 
   DEFER([&] () {delete scan_oper;});
