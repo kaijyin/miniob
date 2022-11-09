@@ -84,34 +84,31 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
     const AttrInfo &attr_info = attributes[i];
     AttrType attr_type = attr_info.type;
     int length = attr_info.length * 8;
-    if(i==1||i==6){
+    if(i==1||i==6||i==14){
       length = 3 * 8;
       field_offset = 4 * 8;
-    } else if (i == 2 || i == 3 || i == 4) {
+    } else if (i == 2 || i == 3 || i == 4||i==13) {
       length = 3 * 8;
       field_offset = 7 * 8;
     } else if(i==5){
       length = 3 * 8;
       field_offset = 10 * 8;
-    } else if (i == 8 || i == 13 || i == 11) {
-      if(i==11)
-        attr_type = DATE;
-      /* 枚举的全放一起*/
-      length = 2 * 8;
+    } else if (i == 11) {
+      attr_type = DATE;
+      length = 1 * 8;
       field_offset = 15 * 8;
     } else if (i == 10 || i == 7) {
       if(i==10)
         attr_type = DATE;
       field_offset = 8 * 13;
       length = 2 * 8;
-    } else if (i == 12 || i == 9 || i == 14) {
-      if(i==12)
-        attr_type = DATE;
-      field_offset = 17 * 8;
-      length = 2 * 8;
+    } else if (i == 12 ||i==8||i == 9) {
+      if(i==12)attr_type = DATE;
+      field_offset = 16 * 8;
+      length = 1 * 8;
     } else if (i == 15) {
       /* 因为13offset往回设了,所以这里需要重新设 */
-      field_offset = 19 * 8;
+      field_offset = 17 * 8;
     }
     rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_type, field_offset, length, true);
     if (rc != RC::SUCCESS) {

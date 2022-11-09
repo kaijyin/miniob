@@ -179,6 +179,7 @@ public:
   void to_string(std::stringstream &os)const override{
     static char temp[20];
     bool first_field = true;
+    int col10 = 0;
     for (int i = 0; i < speces_.size(); i++) {
       const TupleCellSpec *spec = speces_[i];
       FieldExpr *field_expr = (FieldExpr *)spec->expression();
@@ -197,22 +198,22 @@ public:
       }
       if (i == 1) {
         decode_val(record_->data(), record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        os << val / 11;
+        os << val / (11 * enum_col15_num);
         continue;
       }
       if (i == 2) {
         decode_val(record_->data(),record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        os << val / (11 * 101);
+        os << val / (7 * 50 * enum_col14_num);
         continue;
       }
       if (i == 3) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        os << val % 11;
+        os << ((val % (7 * 50 * enum_col14_num)) / (50 * enum_col14_num) + 1);
         continue;
       }
       if (i == 4) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        os << (val % (11 * 101)) / 11;
+        os << ((val % (50 * enum_col14_num)) / enum_col14_num + 1);
         continue;
       }
       if (i == 5) {
@@ -221,7 +222,14 @@ public:
         os << double2string(res);
         continue;
       }
-      if (i == 6 || i == 7) {
+      if(i==6){
+        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        val = (val % (11 * enum_col15_num)) / enum_col15_num;
+        double v = (double)(val) / 100.0;
+        os << double2string(v);
+        continue;
+      }
+      if (i == 7) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         double v = (double)(val % 11) / 100.0;
         os << double2string(v);
@@ -230,19 +238,20 @@ public:
 
       if (i == 8) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = (val % (enum_col9_num * enum_col14_num)) / enum_col14_num;
+        val = val % enum_col9_num;
         os << enum_col9[val];
         continue;
       }
       if (i == 9) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = (val % (enum_col10_num * enum_col15_num)) / enum_col15_num;
+        val = (val % (enum_col9_num * enum_col10_num)) / enum_col9_num;
         os << enum_col10[val];
         continue;
       }
       if (i == 10) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val /= 11;
+        col10 = val;
         int year = 1990 + val / (32 * 13);
         int month = (val % (32 * 13)) / 32;
         int day = val % 32;
@@ -252,7 +261,7 @@ public:
       }
       if (i == 11) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val /= enum_col9_num * enum_col14_num;
+        val = col10 + val - 100;
         int year = 1990 + val / (32 * 13);
         int month = (val % (32 * 13)) / 32;
         int day = val % 32;
@@ -262,7 +271,7 @@ public:
       }
       if(i==12){
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val /= enum_col10_num * enum_col15_num;
+        val /= enum_col10_num * enum_col9_num;
         int year = 1990 + val / (32 * 13);
         int month = (val % (32 * 13)) / 32;
         int day = val % 32;

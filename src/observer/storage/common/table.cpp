@@ -446,19 +446,20 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
   char *record = new char[max_record_size];
   memset(record, 0, max_record_size);
   int record_size = 0;
-  static int count_ = 0;
-  count_++;
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    if(i==1||i==2||i==3||i==7||i==8||i==9||i==13||i==14){
+    if(i==1||i==2||i==3||i==4||i==6||i==7||i==8||i==9){
       continue;
     }
-    if(i==4){
+    if(i==13){
       int val1 = *(int*)values[2].data;
       int val2 = *(int*)values[3].data;
       int val3 = *(int*)values[4].data;
-      int res = val1 * 11 * 101 + val3 * 11 + val2;
+      char* data = (char *)values[13].data;
+      int val4 = find_enum_idx(enum_col14, enum_col14_num, data);
+
+      int res = (val1 - 1) * 7 * 50 * 4 + (val2 - 1) * 50 * 4 + (val3 - 1) * 4 + val4;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
@@ -470,11 +471,13 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
-    if(i==6){
+    if(i==14){
       int v1 = *(int *)(values[1].data);
       float val2 = *(float *)values[6].data;
       int v2 = val2 * 100;
-      int res = v1 * 11 + v2;
+      char* data = (char *)values[14].data;
+      int v3 = find_enum_idx(enum_col15, enum_col15_num, data);
+      int res = v1 * 11 * enum_col15_num + v2 * enum_col15_num + v3;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
@@ -487,42 +490,21 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       continue;
     }
     if(i==11){
-      char* val1 = (char *)values[8].data;
-      char *val2 = (char *)values[13].data;
-      int idx1 = find_enum_idx(enum_col9, enum_col9_num, val1);
-      int idx2 = find_enum_idx(enum_col14, enum_col14_num, val2);
-      int val3 = *(int *)values[11].data;
-      int res = val3 * enum_col9_num * enum_col14_num + idx1 * enum_col14_num + idx2;
+      int val1 = *(int *)values[10].data;
+      int val2 = *(int *)values[11].data;
+      /* 查看精度是否变化 */
+      int res = (val2 - val1) + 100;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
     if(i==12){
-      char *val3 = (char *)values[9].data;
-      char *val4 = (char *)values[14].data;
-      int idx3 = find_enum_idx(enum_col10, enum_col10_num, val3);
-      int idx4 = find_enum_idx(enum_col15, enum_col15_num, val4);
-      int val = *(int *)values[12].data;
-      int res = val * enum_col10_num* enum_col15_num + idx3 * enum_col15_num + idx4;
-      encode_val(record, field->offset(), &res, field->len());
-      continue;
-    }
-    if(i==14){
-      char* val1 = (char *)values[8].data;
+      char *val1 = (char *)values[8].data;
       char *val2 = (char *)values[9].data;
-      char *val3 = (char *)values[13].data;
-      char *val4 = (char *)values[14].data;
       int idx1 = find_enum_idx(enum_col9, enum_col9_num, val1);
       int idx2 = find_enum_idx(enum_col10, enum_col10_num, val2);
-      int idx3 = find_enum_idx(enum_col14, enum_col14_num, val3);
-      int idx4 = find_enum_idx(enum_col15, enum_col15_num, val4);
-      assert(idx1 != -1);
-      assert(idx2 != -1);
-      assert(idx3 != -1);
-      assert(idx4 != -1);
-      int res = idx1 * enum_col10_num * enum_col14_num * enum_col15_num;
-      res += idx2 * enum_col14_num * enum_col15_num;
-      res += idx3 * enum_col15_num;
-      res += idx4;
+      int v1 = *(int *)values[10].data;
+      int v2 = *(int *)values[12].data;
+      int res = (v2 - v1) * enum_col10_num * enum_col9_num + idx2 * enum_col9_num + idx1;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
