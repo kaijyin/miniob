@@ -272,6 +272,7 @@ public:
       if(i==12){
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val /= enum_col10_num * enum_col9_num;
+        val += col10;
         int year = 1990 + val / (32 * 13);
         int month = (val % (32 * 13)) / 32;
         int day = val % 32;
