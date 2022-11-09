@@ -252,19 +252,21 @@ public:
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val /= 11;
         col10 = val;
-        int year = 1990 + val / (32 * 13);
-        int month = (val % (32 * 13)) / 32;
-        int day = val % 32;
+        int year = 1990 + val / (31 * 12);
+        int month = ((val % (31 * 12)) / 31) + 1;
+        int day = (val % 31) + 1;
         sprintf(temp, "%d-%02d-%02d", year, month, day);
         os << temp;
         continue;
       }
       if (i == 11) {
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = col10 + val - 100;
-        int year = 1990 + val / (32 * 13);
-        int month = (val % (32 * 13)) / 32;
-        int day = val % 32;
+        int8_t v = 0;
+        decode_val(
+            record_->data(), record_->offset() + field_meta->offset() - pre_fex_byte_ * 8, &v, field_meta->len());
+        val = col10 + v;
+        int year = 1990 + val / (31 * 12);
+        int month = ((val % (31 * 12)) / 31) + 1;
+        int day = (val % 31) + 1;
         sprintf(temp, "%d-%02d-%02d", year, month, day);
         os << temp;
         continue;
@@ -273,9 +275,9 @@ public:
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val /= enum_col10_num * enum_col9_num;
         val += col10;
-        int year = 1990 + val / (32 * 13);
-        int month = (val % (32 * 13)) / 32;
-        int day = val % 32;
+        int year = 1990 + val / (31 * 12);
+        int month = ((val % (31 * 12)) / 31) + 1;
+        int day = (val % 31) + 1;
         sprintf(temp, "%d-%02d-%02d", year, month, day);
         os << temp;
         continue;

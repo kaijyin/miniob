@@ -63,7 +63,7 @@ void value_init_date(Value *value, const char *v)
   value->type = DATE;
   int year, month, day;
   sscanf(v, "%d-%d-%d", &year, &month, &day);
-  int res = (year - 1990) * 13 * 32 + month * 32 + day;
+  int res = (year - 1990) * 12 * 31 + (month - 1) * 31 + day - 1;
   /* 只用两字节存date */
   // value->data = reform_int(res, 2);
   // if(year<=1990||year>=2000){

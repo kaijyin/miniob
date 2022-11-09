@@ -493,7 +493,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       int val1 = *(int *)values[10].data;
       int val2 = *(int *)values[11].data;
       /* 查看精度是否变化 */
-      int res = (val2 - val1) + 100;
+      int8_t res =(int8_t)(val2 - val1);
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
