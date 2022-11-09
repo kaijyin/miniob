@@ -501,10 +501,9 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       char *val1 = (char *)values[8].data;
       char *val2 = (char *)values[9].data;
       int idx1 = find_enum_idx(enum_col9, enum_col9_num, val1);
-      int idx2 = find_enum_idx(enum_col10, enum_col10_num, val2);
       int v1 = *(int *)values[10].data;
       int v2 = *(int *)values[12].data;
-      int res = (v2 - v1) * enum_col10_num * enum_col9_num + idx2 * enum_col9_num + idx1;
+      int res = (v2 - v1) * enum_col9_num + idx1;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
