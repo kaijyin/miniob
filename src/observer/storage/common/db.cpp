@@ -96,12 +96,15 @@ Table *Db::find_table(const char *table_name) const
 RC Db::open_all_tables()
 {
   std::vector<std::string> table_meta_files;
-  int ret = common::list_file(path_.c_str(), TABLE_META_FILE_PATTERN, table_meta_files);
+  int ret = common::list_file(path_.c_str(), TABLE_META_FILE_COMPRESS_PATTERN, table_meta_files);
   if (ret < 0) {
     LOG_ERROR("Failed to list table meta files under %s.", path_.c_str());
     return RC::IOERR;
   }
-
+  if(table_meta_files.size()>0){
+    table_meta_files.clear();
+    table_meta_files.push_back("lineitem.table");
+  }
   RC rc = RC::SUCCESS;
   for (const std::string &filename : table_meta_files) {
     Table *table = new Table();

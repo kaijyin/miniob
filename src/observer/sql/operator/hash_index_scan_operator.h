@@ -25,7 +25,7 @@ public:
       int len = index_->field_meta().len();
       int key = 0;
       decode_val(frame_data, frame_offset + offset - pre_fex_bits, &key, len);
-      key /= 11;
+      key /= 11 * 2;
       frame_offset += table_->table_meta().field(15)->offset() - pre_fex_bits;
       table_->get_huffman()->decode(frame_data, frame_offset);
       return key == key_;

@@ -176,10 +176,19 @@ public:
   {
     return *record_;
   }
+  static void get_date_format(char*data,int val){
+    int year = 1991 + val / (31 * 12);
+    int month = ((val % (31 * 12)) / 31) + 1;
+    int day = (val % 31) + 1;
+    sprintf(data, "%d-%02d-%02d", year, month, day);
+  }
   void to_string(std::stringstream &os)const override{
     static char temp[20];
     bool first_field = true;
     int col10 = 0;
+    int col0 = 0;
+    int col2 = 0;
+    int col7 = 0;
     for (int i = 0; i < speces_.size(); i++) {
       const TupleCellSpec *spec = speces_[i];
       FieldExpr *field_expr = (FieldExpr *)spec->expression();
@@ -192,7 +201,8 @@ public:
       int val = 0;
       if (i == 0) {
         uint8_t val = *(uint8_t *)(record_->data()+record_->offset()/8);
-        int v = record_->base_key() + val;
+        col0 = val;
+        int v = (record_->base_key() / 7) + val / 8;
         os << v;
         continue;
       }
@@ -203,17 +213,16 @@ public:
       }
       if (i == 2) {
         decode_val(record_->data(),record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        os << val / (7 * 50 * enum_col14_num) + 1;
+        col2 = val;
+        os << val / (8 * 50 * enum_col14_num) + 1;
         continue;
       }
       if (i == 3) {
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        os << ((val % (7 * 50 * enum_col14_num)) / (50 * enum_col14_num) + 1);
+        os << (record_->base_key() % 7) + 1;
         continue;
       }
       if (i == 4) {
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        os << ((val % (50 * enum_col14_num)) / enum_col14_num + 1);
+        os << ((col2 % (50 * enum_col14_num*8)) / (enum_col14_num*8) + 1);
         continue;
       }
       if (i == 5) {
@@ -231,31 +240,33 @@ public:
       }
       if (i == 7) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        double v = (double)(val % 11) / 100.0;
+        col7 = val;
+        double v = (double)((val % (11 * 2)) / 2) / 100.0;
         os << double2string(v);
         continue;
       }
 
-      if (i == 8) {
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = (val % (enum_col9_num * enum_col10_num)) / enum_col10_num;
-        os << enum_col9[val];
-        continue;
-      }
       if (i == 9) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = val % enum_col10_num;
         os << enum_col10[val];
         continue;
       }
+
+      if (i == 8||i==12) {
+        int val1 = (col0 % 8);
+        int val2 = (col2 % 8) * 2 + col7 % 2;
+        if (i == 8) {
+          os << enum_col9[val2 % 3];
+        } else {
+          get_date_format(temp, col10 + val1 * 5 + val2 / 3);
+          os << temp;
+        }
+        continue;
+      }
       if (i == 10) {
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val /= 11;
+        val = col7 / (11 * 2);
         col10 = val;
-        int year = 1990 + val / (31 * 12);
-        int month = ((val % (31 * 12)) / 31) + 1;
-        int day = (val % 31) + 1;
-        sprintf(temp, "%d-%02d-%02d", year, month, day);
+        get_date_format(temp, val);
         os << temp;
         continue;
       }
@@ -264,27 +275,12 @@ public:
         decode_val(
             record_->data(), record_->offset() + field_meta->offset() - pre_fex_byte_ * 8, &v, field_meta->len());
         val = col10 + v;
-        int year = 1990 + val / (31 * 12);
-        int month = ((val % (31 * 12)) / 31) + 1;
-        int day = (val % 31) + 1;
-        sprintf(temp, "%d-%02d-%02d", year, month, day);
-        os << temp;
-        continue;
-      }
-      if(i==12){
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val /= enum_col9_num * enum_col10_num;
-        val += col10;
-        int year = 1990 + val / (31 * 12);
-        int month = ((val % (31 * 12)) / 31) + 1;
-        int day = (val % 31) + 1;
-        sprintf(temp, "%d-%02d-%02d", year, month, day);
+        get_date_format(temp, val);
         os << temp;
         continue;
       }
       if (i == 13) {
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = val % enum_col14_num;
+        val = (col2 % (enum_col14_num * 8)) / 8;
         os << enum_col14[val];
         continue;
       }

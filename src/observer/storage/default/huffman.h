@@ -143,20 +143,18 @@ public:
     in.close();
   }
 
-  string encode(const char *str,int len){
+  void encode(const char *str,int len,char *data,int &offset){
     len = strnlen(str, len);
     string s(str, len);
     vector<string> str_res;
     split_string_keep_delim_pass(s, str_res);
-    int offset = 0;
     string res;
     for (auto&ss:str_res) {
       const string &code = code_map_[words_id_[ss]];
-      encode_into_word(res, offset, code);
+      encode_into_word(data, offset, code);
     }
     const string &end = code_map_[words_id_["\0"]];
-    encode_into_word(res, offset, end);
-    return res;
+    encode_into_word(data, offset, end);
   }
 
   string decode(const char *code,int &offset){
@@ -166,15 +164,12 @@ public:
       res.append(p);
     }
     /* 一字节对齐 */
-    offset = offset % 8 == 0 ? offset : (offset / 8 + 1) * 8;
+    offset = ((offset - 1) / 8 + 1) * 8;
     return res;
   }
 
 private:
-  void encode_into_word(string&word,int &offset,const string &code){
-    while((offset+code.size())>word.size()*8){
-      word.push_back(0);
-    }
+  void encode_into_word(char *word,int &offset,const string &code){
     for (size_t i = 0; i < code.size();i++){
       word[offset / 8] |= code[i] == '1' ? (1 << (offset % 8)) : 0;
       offset++;

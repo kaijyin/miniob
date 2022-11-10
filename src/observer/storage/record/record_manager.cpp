@@ -146,7 +146,7 @@ RC RecordPageHandler::init_empty_page(DiskBufferPool &buffer_pool, PageNum page_
 
   int page_size = BP_PAGE_DATA_SIZE;
   page_header_->capacity = (page_size - page_fix_size()) * 8;
-  page_header_->last_record_key = base_key;
+  page_header_->last_record_key = base_key / 7;
   page_header_->base_key = base_key;
   frame_->mark_dirty();
   return RC::SUCCESS;
@@ -164,10 +164,10 @@ RC RecordPageHandler::cleanup()
 
 RC RecordPageHandler::insert_record(const char *data,int record_size, RID *rid){
   record_size -= pre_fex_bits_;
-  uint8_t val = uint8_t((*(int *)data) - page_header_->last_record_key);
-  int offset = BP_PAGE_DATA_SIZE*8 - page_header_->capacity;
+  uint8_t val = uint8_t((*(int *)data)/(7*8) - page_header_->last_record_key) * 8 + ((*(int *)data) % 8);
+  int offset = BP_PAGE_DATA_SIZE * 8 - page_header_->capacity;
   page_header_->capacity -= record_size;
-  page_header_->last_record_key = (*(int *)data);
+  page_header_->last_record_key = (*(int *)data) / (8 * 7);
   assert(offset % 8 == 0);
   assert(record_size % 8 == 0);
   // encode_val(frame_->data(), offset, (char *)&val, sizeof(val) * 8);
@@ -191,16 +191,22 @@ std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(std::function<b
   int offset = sizeof(PageHeader) * 8;
   int pre_offset;
   int pre_key = page_header_->base_key;
-  while (offset < BP_PAGE_DATA_SIZE*8 - page_header_->capacity) {
+  int order_key = (pre_key % 7) - 1;
+  while (offset < BP_PAGE_DATA_SIZE * 8 - page_header_->capacity) {
     pre_offset = offset;
     uint8_t val = *(uint8_t *)(frame_->data() + offset / 8);
+    if (val / 8 == 0) {
+      order_key++;
+    } else {
+      order_key = 0;
+    }
     if (filter(frame_->data(), offset, pre_fex_bits_, pre_key,get_page_num())) {
       rec.set_rid(RID(get_page_num(), pre_offset));
       rec.set_data(frame_->data());
-      rec.set_base_key(pre_key);
+      rec.set_base_key((pre_key/7)*7+order_key);
       records.push_back(rec);
     }
-    pre_key += val;
+    pre_key = (pre_key / 7 + val / 8) * 7;
   }
   return {RC::SUCCESS, records};
 }
@@ -434,7 +440,7 @@ RC RecordFileHandler::insert_record(const char *data, int record_size, RID *rid)
     }
 
     current_page_num = frame->page_num();
-    int base_key = *(int *)data;
+    int base_key = (*(int *)data) / 8;
     ret = record_page_handler.init_empty_page(*disk_buffer_pool_, current_page_num, base_key);
     if (ret != RC::SUCCESS) {
       LOG_ERROR("Failed to init empty page. ret:%d", ret);

@@ -131,9 +131,9 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
   // 加载元数据文件
   std::fstream fs;
   std::string meta_file_path = std::string(base_dir) + common::FILE_PATH_SPLIT_STR + meta_file;
-  // if(Util::DepressFile(meta_file_path.c_str())!=0){
-  //   return RC::ABORT;
-  // };
+  if(Util::DepressFile(meta_file_path.c_str())!=0){
+    return RC::ABORT;
+  };
   fs.open(meta_file_path, std::ios_base::in | std::ios_base::binary);
   if (!fs.is_open()) {
     LOG_ERROR("Failed to open meta file for read. file name=%s, errmsg=%s", meta_file_path.c_str(), strerror(errno));
@@ -216,13 +216,13 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
     int l_orderkey_offset = l_orderkey_index->field_meta().offset();
     int l_orderkey_key = 0;
     decode_val(frame_data, frame_offset + l_orderkey_offset, &l_orderkey_key, 4 * 8 - pre_fex_bits);
-    l_orderkey_key += pre_key;
+    l_orderkey_key = l_orderkey_key / 8 + pre_key / 7;
     l_orderkey_index->insert_entry(l_orderkey_key, page_num);
 
     int l_shipdate_offset = l_shipdate_index->field_meta().offset();
     int l_shipdate_key = 0;
     decode_val(frame_data, frame_offset + l_shipdate_offset - pre_fex_bits, &l_shipdate_key, l_shipdate_index->field_meta().len());
-    l_shipdate_key /= 11;
+    l_shipdate_key /= 11 * 2;
     l_shipdate_index->insert_entry(l_shipdate_key, page_num);
 
     frame_offset += table_meta_.field(15)->offset() - pre_fex_bits;
@@ -488,24 +488,34 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
   char *record = new char[max_record_size];
   memset(record, 0, max_record_size);
   int record_size = 0;
+  int val0 = *(int *)values[0].data;
+  int val2 = *(int *)values[2].data;
+  int val3 = *(int *)values[3].data;
+  int val4 = *(int *)values[4].data;
+  int val8 = find_enum_idx(enum_col9, enum_col9_num, (char *)values[8].data);
+  int val9 = find_enum_idx(enum_col10, enum_col10_num, (char *)values[9].data);
+  int val13 = find_enum_idx(enum_col14, enum_col14_num, (char *)values[13].data);
+  int val14 = find_enum_idx(enum_col15, enum_col15_num, (char *)values[14].data);
+  int8_t val11 = int8_t(*(int *)values[12].data - *(int *)values[10].data);
+  int val12 = *(int *)values[12].data - *(int *)values[10].data;
+
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    if(i==1||i==2||i==3||i==4||i==6||i==7||i==8||i==9){
+    if (i == 1 || i == 2 || i == 3 || i == 4 || i == 6 || i == 7 || i == 8||i==12) {
       continue;
     }
-    if(i==13){
-      int val1 = *(int*)values[2].data;
-      int val2 = *(int*)values[3].data;
-      int val3 = *(int*)values[4].data;
-      char* data = (char *)values[13].data;
-      int val4 = find_enum_idx(enum_col14, enum_col14_num, data);
-
-      int res = (val1 - 1) * 7 * 50 * 4 + (val2 - 1) * 50 * 4 + (val3 - 1) * 4 + val4;
+    if (i == 0) {
+      int res = val0 * 7 * 8 + (val3 - 1) * 8 + val12 / 5;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
-    if(i==5){
+    if (i == 13) {
+      int res = (val2-1) * 50 * 4 * 8 + (val4 - 1) * 4 * 8 + val13 * 8 + ((val12 % 5) * 3 + val8) / 2;
+      encode_val(record, field->offset(), &res, field->len());
+      continue;
+    }
+    if (i == 5) {
       std::string str = std::string((char *)values[5].data);
       std::string front = str.substr(0, str.find_first_of('.'));
       std::string end = str.substr(str.find_first_of('.') + 1);
@@ -513,52 +523,44 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
-    if(i==14){
+    if (i == 14) {
       int v1 = *(int *)(values[1].data);
       float val2 = *(float *)values[6].data;
       int v2 = val2 * 100;
-      char* data = (char *)values[14].data;
+      char *data = (char *)values[14].data;
       int v3 = find_enum_idx(enum_col15, enum_col15_num, data);
       int res = v1 * 11 * enum_col15_num + v2 * enum_col15_num + v3;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
-    if(i==10){
+    if(i==9){
+      encode_val(record, field->offset(), &val9, field->len());
+      continue;
+    }
+    if (i == 10) {
       int v1 = *(int *)values[10].data;
       float val2 = *(float *)values[7].data;
       int v2 = val2 * 100;
-      int res = v1 * 11 + v2;
+      int res = v1 * 11 * 2 + v2 * 2 + (((val12 % 5) * 3 + val8) % 2); 
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
-    if(i==11){
+    if (i == 11) {
       int val1 = *(int *)values[10].data;
       int val2 = *(int *)values[11].data;
       /* 查看精度是否变化 */
-      int8_t res =(int8_t)(val2 - val1);
+      int8_t res = (int8_t)(val2 - val1);
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }
-    if(i==12){
-      char *val1 = (char *)values[8].data;
-      char *val2 = (char *)values[9].data;
-      int idx1 = find_enum_idx(enum_col9, enum_col9_num, val1);
-      int idx2 = find_enum_idx(enum_col10, enum_col10_num, val2);
-      int v1 = *(int *)values[10].data;
-      int v2 = *(int *)values[12].data;
-      int res = (v2 - v1) * enum_col9_num * enum_col10_num + idx1 * enum_col10_num + idx2;
-      encode_val(record, field->offset(), &res, field->len());
-      continue;
-    }
-    if(i==15){
+    if (i == 15) {
       /* huffman编码 */
-      auto res =  huf_->encode((char *)value.data, strlen((char *)value.data));
-
-      encode_val(record, field->offset(), (void *)res.c_str(), res.size() * 8);
-      record_size = field->offset() + res.size() * 8;
+      int offset = field->offset();
+      huf_->encode((char *)value.data, strlen((char *)value.data), record, offset);
+      record_size = ((offset - 1) / 8 + 1) * 8;
       continue;
     }
-    encode_val(record,field->offset(),value.data,field->len());
+    encode_val(record, field->offset(), value.data, field->len());
   }
 
   record_out = record;
@@ -1159,9 +1161,9 @@ RC Table::sync()
     }
   }
   data_buffer_pool_->flush_all_pages();
-  // if(Util::CompressFile(table_meta_file(base_dir_.c_str(),table_meta_.name()))!=0){
-  //   return RC::ABORT;
-  // }
+  if(Util::CompressFile(table_meta_file(base_dir_.c_str(),table_meta_.name()))!=0){
+    return RC::ABORT;
+  }
   if(Util::CompressFile(table_data_file(base_dir_.c_str(),table_meta_.name()))!=0){
     return RC::ABORT;
   }

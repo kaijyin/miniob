@@ -25,7 +25,7 @@ public:
           int offset = index_->field_meta().offset();
           int val = 0;
           decode_val(frame_data, frame_offset + offset, &val, 4*8-pre_fex_bits);
-          val += pre_key;
+          val = val / 8 + pre_key / 7;
           /* 找最后的一个field */
           frame_offset += table_->table_meta().field(15)->offset() - pre_fex_bits;
           table_->get_huffman()->decode(frame_data, frame_offset);
