@@ -452,7 +452,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     tuple->to_string(ss);
     ss << std::endl;
   }
-  // std::ofstream out(std::string("/root/workspace/atec/miniob/scan_res.txt"));
+  // std::ofstream out(std::string("/root/workspace/atec/miniob/test_scan_res.txt"));
   // out << ss.str();
   // out.flush();
   // out.close();

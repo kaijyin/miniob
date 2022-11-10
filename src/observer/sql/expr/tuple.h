@@ -203,7 +203,7 @@ public:
       }
       if (i == 2) {
         decode_val(record_->data(),record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        os << val / (7 * 50 * enum_col14_num);
+        os << val / (7 * 50 * enum_col14_num) + 1;
         continue;
       }
       if (i == 3) {
@@ -238,14 +238,13 @@ public:
 
       if (i == 8) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = val % enum_col9_num;
+        val = (val % (enum_col9_num * enum_col10_num)) / enum_col10_num;
         os << enum_col9[val];
         continue;
       }
       if (i == 9) {
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val = val % enum_col9_num;
-        val = val == 1 ? 1 : 0;
+        val = val % enum_col10_num;
         os << enum_col10[val];
         continue;
       }
@@ -274,7 +273,7 @@ public:
       }
       if(i==12){
         decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
-        val /= enum_col9_num;
+        val /= enum_col9_num * enum_col10_num;
         val += col10;
         int year = 1990 + val / (31 * 12);
         int month = ((val % (31 * 12)) / 31) + 1;

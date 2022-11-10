@@ -419,6 +419,47 @@ int find_enum_idx(char *enum_arr[], int n,char *str){
   return -1;
 }
 
+static void check_value(const Value*values){
+  static int pre_col0 = 0;
+  static int count = 0;
+  count++;
+  int cur_col0 = *(int *)values[0].data;
+  if(count>1&&(cur_col0-pre_col0)>25){
+    LOG_ERROR("%d col0 :%d %d", count, cur_col0,pre_col0);
+    exit(1);
+  }
+  int col_3 = *(int *)values[3].data;
+  if(col_3>7){
+    LOG_ERROR("%d col3 :%d ", count, col_3);
+    exit(1);
+  }
+  int col_4 = *(int *)values[4].data;
+  if(col_4>50){
+    LOG_ERROR("%d col4 :%d ", count, col_4);
+    exit(1);
+  }
+  int col_10 = *(int *)values[10].data;
+  int col_12 = *(int *)values[12].data;
+  if((col_12-col_10)>40){
+    LOG_ERROR("%d col12 :%d %d ",count, col_12, col_10);
+    exit(1);
+  }
+  int col_11 = *(int *)values[11].data;
+  if(abs(col_11-col_10)>127){
+    LOG_ERROR("%d col11 :%d %d", count, col_11, col_10);
+    exit(1);
+  }
+  char *val1 = (char *)values[8].data;
+  char *val2 = (char *)values[9].data;
+  int idx1 = find_enum_idx(enum_col9, enum_col9_num, val1);
+  int idx2 = find_enum_idx(enum_col10, enum_col10_num, val2);
+  // if((idx1==1&&idx2!=1)||(idx1!=1&&idx2==1)){
+  //   LOG_ERROR("%d col89 :%d %d", count, idx1, idx2);
+  //   exit(1);
+  // }
+  pre_col0 = cur_col0;
+}
+
 RC Table::make_record(int value_num, const Value *values, char *&record_out,int &record_size_out)
 {
   // 检查字段类型是否一致
@@ -441,6 +482,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
     }
   }
 
+  check_value(values);
   // 复制所有字段的值
   static const int max_record_size = 80;
   char *record = new char[max_record_size];
@@ -501,9 +543,10 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       char *val1 = (char *)values[8].data;
       char *val2 = (char *)values[9].data;
       int idx1 = find_enum_idx(enum_col9, enum_col9_num, val1);
+      int idx2 = find_enum_idx(enum_col10, enum_col10_num, val2);
       int v1 = *(int *)values[10].data;
       int v2 = *(int *)values[12].data;
-      int res = (v2 - v1) * enum_col9_num + idx1;
+      int res = (v2 - v1) * enum_col9_num * enum_col10_num + idx1 * enum_col10_num + idx2;
       encode_val(record, field->offset(), &res, field->len());
       continue;
     }

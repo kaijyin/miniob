@@ -66,9 +66,9 @@ void value_init_date(Value *value, const char *v)
   int res = (year - 1990) * 12 * 31 + (month - 1) * 31 + day - 1;
   /* 只用两字节存date */
   // value->data = reform_int(res, 2);
-  // if(year<=1990||year>=2000){
-  //   exit(0);
-  // }
+  if(year<1991||year>1998){
+    exit(1);
+  }
   value->data = (char *)malloc(sizeof(int));
   /* 需要考虑大小端 */
   memcpy(value->data, &res, sizeof(int));
