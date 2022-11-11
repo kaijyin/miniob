@@ -157,6 +157,9 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
   if(Util::DepressFile(table_data_file(base_dir,table_meta_.name()))!=0){
     return RC::ABORT;
   }
+  if(Util::DepressFile(table_str_data_file(base_dir,table_meta_.name()))!=0){
+    return RC::ABORT;
+  }
   if(Util::DepressFile(table_huf_file(base_dir,table_meta_.name()))!=0){
     return RC::ABORT;
   }
@@ -1174,6 +1177,9 @@ RC Table::sync()
     return RC::ABORT;
   }
   if(Util::CompressFile(table_data_file(base_dir_.c_str(),table_meta_.name()))!=0){
+    return RC::ABORT;
+  }
+  if(Util::CompressFile(table_str_data_file(base_dir_.c_str(),table_meta_.name()))!=0){
     return RC::ABORT;
   }
   if(Util::CompressFile(table_huf_file(base_dir_.c_str(),table_meta_.name()))!=0){

@@ -452,10 +452,10 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     tuple->to_string(ss);
     ss << std::endl;
   }
-  std::ofstream out(std::string("/root/workspace/atec/miniob/test_scan_res.txt"));
-  out << ss.str();
-  out.flush();
-  out.close();
+  // std::ofstream out(std::string("/root/workspace/atec/miniob/test_scan_res.txt"));
+  // out << ss.str();
+  // out.flush();
+  // out.close();
   
   if (rc != RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
