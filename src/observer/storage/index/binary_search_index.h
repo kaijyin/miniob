@@ -103,23 +103,31 @@ public:
      }
      return {RC::SUCCESS, res};
  }
-  RC sync() override{
-    /* 一定记得在建索引后sync */
-    // std::ofstream out(file_name_,std::ios_base::trunc|std::ios_base::binary);
-    // /* 从文件中读取数据 */
-    // for (int key:page_max_keys_){
-    //   out.write((const char*)&key, sizeof(key));
-    // }
-    // out.flush();
-    // out.close();
-    // if(Util::CompressFile(file_name_)!=0){
-    //   return RC::ABORT;
-    // }
-    return RC::SUCCESS;
-  }
-  IndexType type()override{
-    return IndexType::BinarySearch;
-  }
+ std::pair<RC,std::vector<RecordNum>> find_records(int key)const override{
+   return {RC::UNIMPLENMENT, {}};
+ }
+ RC insert_entry(int key, RecordNum page_num) override{
+   return RC::UNIMPLENMENT;
+ }
+ RC sync() override
+ {
+   /* 一定记得在建索引后sync */
+   // std::ofstream out(file_name_,std::ios_base::trunc|std::ios_base::binary);
+   // /* 从文件中读取数据 */
+   // for (int key:page_max_keys_){
+   //   out.write((const char*)&key, sizeof(key));
+   // }
+   // out.flush();
+   // out.close();
+   // if(Util::CompressFile(file_name_)!=0){
+   //   return RC::ABORT;
+   // }
+   return RC::SUCCESS;
+ }
+ IndexType type() override
+ {
+   return IndexType::BinarySearch;
+ }
 
 private:
   std::mutex mutex_;

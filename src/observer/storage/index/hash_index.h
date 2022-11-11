@@ -81,24 +81,34 @@ public:
 
   RC insert_entry(const char *record, const RID *rid)override{
     /* key */
-    std::lock_guard<std::mutex> _(mutex_);
-    int key = 0;
-    decode_val(record, field_meta_.offset(), &key, field_meta_.len());
-    key /= 11;
-    while (blooms_.size() <= rid->page_num) {
-      blooms_.emplace_back(BloomFilter());
-    }
-    blooms_[rid->page_num].Set(std::string((char *)&key, sizeof(key)));
+    // std::lock_guard<std::mutex> _(mutex_);
+    // int key = 0;
+    // decode_val(record, field_meta_.offset(), &key, field_meta_.len());
+    // key /= 11;
+    // while (blooms_.size() <= rid->page_num) {
+    //   blooms_.emplace_back(BloomFilter());
+    // }
+    // blooms_[rid->page_num].Set(std::string((char *)&key, sizeof(key)));
     return RC::SUCCESS;
   }
   RC insert_entry(int key, int page_num)override{
-    std::lock_guard<std::mutex> _(mutex_);
-    while (blooms_.size() <= page_num) {
-      blooms_.emplace_back(BloomFilter());
-    }
-    blooms_[page_num].Set(std::string((char *)&key, sizeof(key)));
+    // std::lock_guard<std::mutex> _(mutex_);
+    // while (blooms_.size() <= page_num) {
+    //   blooms_.emplace_back(BloomFilter());
+    // }
+    // blooms_[page_num].Set(std::string((char *)&key, sizeof(key)));
     return RC::SUCCESS;
   }
+
+  RC insert_entry(int key, RecordNum page_num)override{
+    std::lock_guard<std::mutex> _(mutex_);
+    while(record_nums_.size()<=(size_t)key){
+      record_nums_.push_back({});
+    }
+    record_nums_[key].push_back(page_num);
+    return RC::SUCCESS;
+  }
+
   RC delete_entry(const char *record, const RID *rid)override{
     return RC::UNIMPLENMENT;
   }
@@ -114,15 +124,24 @@ public:
     return nullptr;
    }
 
+ std::pair<RC,std::vector<RecordNum>> find_records(int key)const override{
+   if(key>=record_nums_.size()){
+     return {RC::SUCCESS, {}};
+   }
+   return {RC::SUCCESS, record_nums_[key]};
+ }
+
   std::pair<RC,std::vector<PageNum>> find_pages(int key)const override{
-    std::vector<PageNum> pages;
-    for (size_t i = 0; i < blooms_.size();i++){
-      if(blooms_[i].Get(std::string((char*)&key,sizeof(key)))){
-        pages.push_back(i);
-      }
-    }
-    return {RC::SUCCESS, pages};
+    // std::vector<PageNum> pages;
+    // for (size_t i = 0; i < blooms_.size();i++){
+    //   if(blooms_[i].Get(std::string((char*)&key,sizeof(key)))){
+    //     pages.push_back(i);
+    //   }
+    // }
+    return {RC::UNIMPLENMENT, {}};
   }
+
+
   RC sync() override{
     // /* 一定记得在建索引后sync */
     // std::ofstream out(file_name_,std::ios_base::trunc|std::ios_base::binary);
@@ -146,6 +165,7 @@ public:
 private:
   std::mutex mutex_;
   const char *file_name_ = nullptr;
-  std::vector<BloomFilter> blooms_;
+  // std::vector<BloomFilter> blooms_;
+  std::vector<std::vector<RecordNum>> record_nums_;
 };
 #endif  //__OBSERVER_STORAGE_COMMON_HASH_INDEX_H_

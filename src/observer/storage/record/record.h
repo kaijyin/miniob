@@ -94,26 +94,38 @@ public:
 
   void set_data(char *data) { this->data_ = data; }
   char *data() { return this->data_; }
+  void set_str_data(char *data){
+    this->str_data_ = data;
+  }
+  char *str_data(){
+    return this->str_data_;
+  }
   const char *data() const { return this->data_; }
+  
+  void set_str_offset(uint64_t offset){
+    str_offset_ = offset;
+  }
 
   void set_rid(const RID &rid) { this->rid_ = rid; }
   void set_rid(const PageNum page_num, const SlotNum slot_num) { this->rid_.page_num = page_num; this->rid_.slot_num = slot_num; }
-  int  offset(){
-    return rid_.offset;
+
+  uint64_t str_offset(){
+    return str_offset_;
   }
+  
   RID & rid() { return rid_; }
   const RID &rid() const { return rid_; };
   void set_size(int size){
     length_ = size;
   }
-  void set_base_key(int base_key){
-    base_key_ = base_key;
+  void set_order_key(int base_key){
+    order_key_ = base_key;
   }
   int size(){
     return length_;
   }
-  int base_key()const{
-    return base_key_;
+  int order_key()const{
+    return order_key_;
   }
   int pre_fex_byte()const{
     return pre_fex_bits_;
@@ -126,6 +138,8 @@ private:
   // the data buffer
   // record will not release the memory
   char *         data_ = nullptr;
+  char *str_data_ = nullptr;
+  uint64_t str_offset_;
   int length_ = 0;
-  int base_key_ = 0;
+  int order_key_ = 0;
 };

@@ -45,7 +45,9 @@ public:
   const std::vector<FieldMeta> *field_metas() const { return &fields_; }
   int field_num() const; // sys field included
   int sys_field_num() const;
-
+  int data_record_size()const{
+    return data_record_size_;
+  }
   const IndexMeta *index(const char *name) const;
   const IndexMeta *find_index_by_field(const char *field) const;
   const IndexMeta *index(int i) const;
@@ -66,8 +68,7 @@ protected:
   std::string name_;
   std::vector<FieldMeta> fields_;  // 包含sys_fields
   std::vector<IndexMeta> indexes_;
-
-
+  int data_record_size_;
   //@@@ TODO why used static variable?
   static std::vector<FieldMeta> sys_fields_;
 };

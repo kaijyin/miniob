@@ -17,3 +17,4 @@ See the Mulan PSL v2 for more details. */
 using PageNum = int16_t;
 using SlotNum = int16_t;
 using TupleOffset = uint16_t;
+using RecordNum = uint32_t;

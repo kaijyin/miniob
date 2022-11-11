@@ -200,25 +200,25 @@ public:
       }
       int val = 0;
       if (i == 0) {
-        uint8_t val = *(uint8_t *)(record_->data()+record_->offset()/8);
+        uint8_t val = *(uint8_t *)(record_->data());
         col0 = val;
-        int v = (record_->base_key() / 7) + val / 8;
+        int v = record_->order_key() / 7;
         os << v;
         continue;
       }
       if (i == 1) {
-        decode_val(record_->data(), record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         os << val / (11 * enum_col15_num);
         continue;
       }
       if (i == 2) {
-        decode_val(record_->data(),record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         col2 = val;
         os << val / (8 * 50 * enum_col14_num) + 1;
         continue;
       }
       if (i == 3) {
-        os << (record_->base_key() % 7) + 1;
+        os << (record_->order_key() % 7) + 1;
         continue;
       }
       if (i == 4) {
@@ -226,20 +226,20 @@ public:
         continue;
       }
       if (i == 5) {
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         float res = (float)val / 100.0;
         os << double2string(res);
         continue;
       }
       if(i==6){
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(),field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val = (val % (11 * enum_col15_num)) / enum_col15_num;
         double v = (double)(val) / 100.0;
         os << double2string(v);
         continue;
       }
       if (i == 7) {
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(),field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         col7 = val;
         double v = (double)((val % (11 * 2)) / 2) / 100.0;
         os << double2string(v);
@@ -247,7 +247,8 @@ public:
       }
 
       if (i == 9) {
-        decode_val(record_->data(), record_->offset()+field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        uint64_t offset = record_->str_offset();
+        decode_val(record_->str_data(), offset, &val, field_meta->len());
         os << enum_col10[val];
         continue;
       }
@@ -273,7 +274,7 @@ public:
       if (i == 11) {
         int8_t v = 0;
         decode_val(
-            record_->data(), record_->offset() + field_meta->offset() - pre_fex_byte_ * 8, &v, field_meta->len());
+            record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &v, field_meta->len());
         val = col10 + v;
         get_date_format(temp, val);
         os << temp;
@@ -285,15 +286,15 @@ public:
         continue;
       }
       if (i == 14) {
-        decode_val(record_->data(),record_->offset()+ field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
+        decode_val(record_->data(), field_meta->offset() - pre_fex_byte_ * 8, &val, field_meta->len());
         val %= enum_col15_num;
         os << enum_col15[val];
         continue;
       }
       if (i == 15) {
         /* 哈夫曼解码 */
-        int offset = record_->offset() + field_meta->offset() - pre_fex_byte_ * 8;
-        std::string word = table_->get_huffman()->decode(record_->data(), offset);
+        uint64_t offset = record_->str_offset() + 1;
+        std::string word = table_->get_huffman()->decode(record_->str_data(), offset);
         os << word;
         continue;
       }

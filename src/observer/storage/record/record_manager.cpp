@@ -203,7 +203,7 @@ std::pair<RC,std::vector<Record>> RecordPageHandler::get_records(std::function<b
     if (filter(frame_->data(), offset, pre_fex_bits_, pre_key,get_page_num())) {
       rec.set_rid(RID(get_page_num(), pre_offset));
       rec.set_data(frame_->data());
-      rec.set_base_key((pre_key/7)*7+order_key);
+      rec.set_order_key((pre_key/7)*7+order_key);
       records.push_back(rec);
     }
     pre_key = (pre_key / 7 + val / 8) * 7;

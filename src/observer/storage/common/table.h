@@ -30,6 +30,8 @@ class RecordDeleter;
 class Trx;
 class CLogManager;
 class Huffman;
+class MmapBufferPool;
+class MmapRecordFileHandler;
 // TODO remove the routines with condition
 class Table {
 public:
@@ -72,6 +74,10 @@ public:
 
   RecordFileHandler *record_handler() const
   {
+    return nullptr;
+  }
+
+  MmapRecordFileHandler*new_record_handler()const{
     return record_handler_;
   }
 
@@ -129,10 +135,12 @@ private:
   std::string base_dir_;
   CLogManager *clog_manager_;
   TableMeta table_meta_;
-  DiskBufferPool *data_buffer_pool_ = nullptr;   /// 数据文件关联的buffer pool
-  RecordFileHandler *record_handler_ = nullptr;  /// 记录操作
+  // DiskBufferPool *data_buffer_pool_ = nullptr;   /// 数据文件关联的buffer pool
+  MmapBufferPool *data_buffer_pool_ = nullptr;
+  MmapBufferPool *str_data_buffer_pool_ = nullptr;
+  MmapRecordFileHandler *record_handler_ = nullptr;  /// 记录操作
   std::vector<Index *> indexes_;
-  Huffman *huf_;
+  Huffman *huf_ = nullptr;
 };
 
 #endif  // __OBSERVER_STORAGE_COMMON_TABLE_H__

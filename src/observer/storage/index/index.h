@@ -57,6 +57,7 @@ public:
 
   virtual RC insert_entry(const char *record, const RID *rid) = 0;
   virtual RC insert_entry(int key, int page_num) = 0;
+  virtual RC insert_entry(int key, RecordNum record_num) = 0;
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
 
   virtual IndexScanner *create_scanner(const char *left_key, int left_len, bool left_inclusive,
@@ -65,6 +66,7 @@ public:
   virtual RC sync() = 0;
   virtual IndexType type() = 0;
   virtual std::pair<RC,std::vector<PageNum>> find_pages(int key) const = 0;
+  virtual std::pair<RC,std::vector<RecordNum>> find_records(int key) const = 0;
 
 protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);

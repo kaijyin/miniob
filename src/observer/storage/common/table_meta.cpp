@@ -123,6 +123,8 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
     field_offset += length;
   }
 
+  data_record_size_ = 16;
+
   name_ = name;
   LOG_INFO("Sussessfully initialized table meta. table name=%s", name);
   return RC::SUCCESS;
@@ -291,6 +293,8 @@ int TableMeta::deserialize(std::istream &is)
 
   // std::sort(
   //     fields.begin(), fields.end(), [](const FieldMeta &f1, const FieldMeta &f2) { return f1.offset() < f2.offset(); });
+  /* data部分的大小是确定的 */
+  data_record_size_ = fields.back().offset() / 8;
 
   name_.swap(table_name);
   fields_.swap(fields);

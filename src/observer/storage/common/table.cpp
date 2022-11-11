@@ -22,8 +22,10 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/lang/string.h"
 #include "storage/default/disk_buffer_pool.h"
+#include "storage/default/mmap_buffer_pool.h"
 #include "storage/default/huffman.h"
 #include "storage/record/record_manager.h"
+#include "storage/record/mmap_record_manager.h"
 #include "storage/common/condition_filter.h"
 #include "storage/common/meta_util.h"
 #include "storage/index/index.h"
@@ -43,10 +45,10 @@ Table::~Table()
     record_handler_ = nullptr;
   }
 
-  if (data_buffer_pool_ != nullptr) {
-    data_buffer_pool_->close_file();
-    data_buffer_pool_ = nullptr;
-  }
+  // if (data_buffer_pool_ != nullptr) {
+  //   data_buffer_pool_->close_file();
+  //   data_buffer_pool_ = nullptr;
+  // }
 
   for (std::vector<Index *>::iterator it = indexes_.begin(); it != indexes_.end(); ++it) {
     Index *index = *it;
@@ -106,8 +108,14 @@ RC Table::create(
   fs.close();
 
   std::string data_file = table_data_file(base_dir, name);
-  BufferPoolManager &bpm = BufferPoolManager::instance();
-  rc = bpm.create_file(data_file.c_str());
+  // BufferPoolManager &bpm = BufferPoolManager::instance();
+  // rc = bpm.create_file(data_file.c_str());
+  rc = MmapBufferPool::create_file(data_file.c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to create disk buffer pool of data file. file name=%s", data_file.c_str());
+    return rc;
+  }
+  rc = MmapBufferPool::create_file(data_file.append(".str").c_str());
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to create disk buffer pool of data file. file name=%s", data_file.c_str());
     return rc;
@@ -152,6 +160,11 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
   if(Util::DepressFile(table_huf_file(base_dir,table_meta_.name()))!=0){
     return RC::ABORT;
   }
+  base_dir_ = base_dir;
+
+  huf_ = new Huffman();
+  huf_->deserialize(table_huf_file(base_dir, table_meta_.name()));
+
   // 加载数据文件
   RC rc = init_record_handler(base_dir);
   if (rc != RC::SUCCESS) {
@@ -160,11 +173,6 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
     return rc;
   }
 
-  base_dir_ = base_dir;
-
-  huf_ = new Huffman();
-  huf_->deserialize(table_huf_file(base_dir, table_meta_.name()));
-  
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_.index(i);
@@ -212,30 +220,17 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
     l_orderkey_index = indexes_[1];
   }
   // 遍历当前的所有数据，插入这个索引
-  auto insert_func = [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key, int page_num) -> bool {
-    int l_orderkey_offset = l_orderkey_index->field_meta().offset();
-    int l_orderkey_key = 0;
-    decode_val(frame_data, frame_offset + l_orderkey_offset, &l_orderkey_key, 4 * 8 - pre_fex_bits);
-    l_orderkey_key = l_orderkey_key / 8 + pre_key / 7;
-    l_orderkey_index->insert_entry(l_orderkey_key, page_num);
+  auto insert_func = [&](char *record_data, const int pre_fix_byte, int order_key, RecordNum record_num) {
+    record_handler_->set_orderkey(record_num, order_key);
 
     int l_shipdate_offset = l_shipdate_index->field_meta().offset();
     int l_shipdate_key = 0;
-    decode_val(frame_data, frame_offset + l_shipdate_offset - pre_fex_bits, &l_shipdate_key, l_shipdate_index->field_meta().len());
+    decode_val(record_data,l_shipdate_offset -pre_fix_byte*8, &l_shipdate_key, l_shipdate_index->field_meta().len());
     l_shipdate_key /= 11 * 2;
-    l_shipdate_index->insert_entry(l_shipdate_key, page_num);
-
-    frame_offset += table_meta_.field(15)->offset() - pre_fex_bits;
-    huf_->decode(frame_data, frame_offset);
-    return false;
+    l_shipdate_index->insert_entry(l_shipdate_key, record_num);
   };
-  std::vector<PageNum> pages;
-  int page_count;
-  data_buffer_pool_->get_page_count(&page_count);
-  for (PageNum i = 1; i < page_count;i++){
-    pages.push_back(i);
-  }
-  record_handler_->get_records(pages, insert_func);
+
+  record_handler_->scan_all_records(insert_func);
 
   if (clog_manager_ == nullptr) {
     clog_manager_ = clog_manager;
@@ -246,41 +241,41 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
 
 RC Table::commit_insert(Trx *trx, const RID &rid)
 {
-  Record record;
-  RC rc = record_handler_->get_record(&rid, &record);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to get record %s: %s", this->name(), rid.to_string().c_str());
-    return rc;
-  }
+  // Record record;
+  // RC rc = record_handler_->get_record(&rid, &record);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Failed to get record %s: %s", this->name(), rid.to_string().c_str());
+  //   return rc;
+  // }
 
-  return trx->commit_insert(this, record);
+  // return trx->commit_insert(this, record);
+  return RC::SUCCESS;
 }
 
 RC Table::rollback_insert(Trx *trx, const RID &rid)
 {
 
-  Record record;
-  RC rc = record_handler_->get_record(&rid, &record);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to get record %s: %s", this->name(), rid.to_string().c_str());
-    return rc;
-  }
+  // Record record;
+  // RC rc = record_handler_->get_record(&rid, &record);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Failed to get record %s: %s", this->name(), rid.to_string().c_str());
+  //   return rc;
+  // }
 
-  // remove all indexes
-  rc = delete_entry_of_indexes(record.data(), rid, false);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to delete indexes of record(rid=%d.%d) while rollback insert, rc=%d:%s",
-        rid.page_num,
-        rid.slot_num,
-        rc,
-        strrc(rc));
-    return rc;
-  }
+  // // remove all indexes
+  // rc = delete_entry_of_indexes(record.data(), rid, false);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Failed to delete indexes of record(rid=%d.%d) while rollback insert, rc=%d:%s",
+  //       rid.page_num,
+  //       rid.slot_num,
+  //       rc,
+  //       strrc(rc));
+  //   return rc;
+  // }
 
-  rc = record_handler_->delete_record(&rid);
-  return rc;
+  // rc = record_handler_->delete_record(&rid);
+  return RC::SUCCESS;
 }
-
 
 RC Table::insert_record(Trx *trx, Record *record)
 {
@@ -288,12 +283,12 @@ RC Table::insert_record(Trx *trx, Record *record)
 
   // if (trx != nullptr) {
   //   trx->init_trx_info(this, *record);
+  // // }
+  // rc = record_handler_->insert_record(record->data(), record->size(), &record->rid());
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
+  //   return rc;
   // }
-  rc = record_handler_->insert_record(record->data(), record->size(), &record->rid());
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
-    return rc;
-  }
 
   // if (trx != nullptr) {
   //   rc = trx->insert_record(this, record);
@@ -311,7 +306,7 @@ RC Table::insert_record(Trx *trx, Record *record)
   //   }
   // }
 
-  rc = insert_entry_of_indexes(record->data(), record->rid());
+  // rc = insert_entry_of_indexes(record->data(), record->rid());
   // if (rc != RC::SUCCESS) {
   //   RC rc2 = delete_entry_of_indexes(record->data(), record->rid(), true);
   //   if (rc2 != RC::SUCCESS) {
@@ -375,10 +370,10 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
     return rc;
   }
 
-  Record record;
-  record.set_data(record_data);
-  record.set_size(record_size);
-  rc = insert_record(trx, &record);
+  // Record record;
+  // record.set_data(record_data);
+  // record.set_size(record_size);
+  // rc = insert_record(trx, &record);
   delete[] record_data;
   return rc;
 }
@@ -557,7 +552,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out,int 
       /* huffman编码 */
       int offset = field->offset();
       huf_->encode((char *)value.data, strlen((char *)value.data), record, offset);
-      record_size = ((offset - 1) / 8 + 1) * 8;
+      record_handler_->insert_record(record, record + field->offset() / 8, offset - field->offset() + 1);
       continue;
     }
     encode_val(record, field->offset(), value.data, field->len());
@@ -572,18 +567,29 @@ RC Table::init_record_handler(const char *base_dir)
 {
   std::string data_file = table_data_file(base_dir, table_meta_.name());
 
-  RC rc = BufferPoolManager::instance().open_file(data_file.c_str(), data_buffer_pool_);
+  // RC rc = BufferPoolManager::instance().open_file(data_file.c_str(), data_buffer_pool_);
+  data_buffer_pool_ = new MmapBufferPool();
+  RC rc = data_buffer_pool_->open_file(data_file.c_str());
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to open disk buffer pool for file:%s. rc=%d:%s", data_file.c_str(), rc, strrc(rc));
     return rc;
   }
 
-  record_handler_ = new RecordFileHandler();
-  rc = record_handler_->init(data_buffer_pool_);
+  str_data_buffer_pool_ = new MmapBufferPool();
+  rc = str_data_buffer_pool_->open_file(data_file.append(".str").c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to open disk buffer pool for file:%s. rc=%d:%s", data_file.c_str(), rc, strrc(rc));
+    return rc;
+  }
+
+  record_handler_ = new MmapRecordFileHandler();
+  rc = record_handler_->init(data_buffer_pool_, table_meta_.data_record_size(), str_data_buffer_pool_, huf_);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to init record handler. rc=%d:%s", rc, strrc(rc));
     data_buffer_pool_->close_file();
-    data_buffer_pool_ = nullptr;
+    str_data_buffer_pool_->close_file();
+    delete data_buffer_pool_;
+    delete str_data_buffer_pool_;
     delete record_handler_;
     record_handler_ = nullptr;
     return rc;
@@ -594,11 +600,11 @@ RC Table::init_record_handler(const char *base_dir)
 
 RC Table::get_record_scanner(RecordFileScanner &scanner)
 {
-  RC rc = scanner.open_scan(*data_buffer_pool_, nullptr);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("failed to open scanner. rc=%d:%s", rc, strrc(rc));
-  }
-  return rc;
+  // RC rc = scanner.open_scan(*data_buffer_pool_, nullptr);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("failed to open scanner. rc=%d:%s", rc, strrc(rc));
+  // }
+  return RC::SUCCESS;
 }
 
 /**
@@ -638,90 +644,90 @@ RC Table::scan_record(Trx *trx, ConditionFilter *filter,
 RC Table::scan_record(Trx *trx, ConditionFilter *filter, int limit, void *context,
                       RC (*record_reader)(Record *record, void *context))
 {
-  if (nullptr == record_reader) {
-    return RC::INVALID_ARGUMENT;
-  }
+  // if (nullptr == record_reader) {
+  //   return RC::INVALID_ARGUMENT;
+  // }
 
-  if (0 == limit) {
-    return RC::SUCCESS;
-  }
+  // if (0 == limit) {
+  //   return RC::SUCCESS;
+  // }
 
-  if (limit < 0) {
-    limit = INT_MAX;
-  }
+  // if (limit < 0) {
+  //   limit = INT_MAX;
+  // }
 
-  IndexScanner *index_scanner = find_index_for_scan(filter);
-  if (index_scanner != nullptr) {
-    return scan_record_by_index(trx, index_scanner, filter, limit, context, record_reader);
-  }
+  // IndexScanner *index_scanner = find_index_for_scan(filter);
+  // if (index_scanner != nullptr) {
+  //   return scan_record_by_index(trx, index_scanner, filter, limit, context, record_reader);
+  // }
 
-  RC rc = RC::SUCCESS;
-  RecordFileScanner scanner;
-  rc = scanner.open_scan(*data_buffer_pool_, filter);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("failed to open scanner. rc=%d:%s", rc, strrc(rc));
-    return rc;
-  }
+  // RC rc = RC::SUCCESS;
+  // RecordFileScanner scanner;
+  // rc = scanner.open_scan(*str_data_buffer_pool_, filter);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("failed to open scanner. rc=%d:%s", rc, strrc(rc));
+  //   return rc;
+  // }
 
-  int record_count = 0;
-  Record record;
-  while (scanner.has_next()) {
-    rc = scanner.next(record);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to fetch next record. rc=%d:%s", rc, strrc(rc));
-      return rc;
-    }
-    if (trx == nullptr || trx->is_visible(this, &record)) {
-      rc = record_reader(&record, context);
-      if (rc != RC::SUCCESS) {
-        break;
-      }
-      record_count++;
-    }
-  }
+  // int record_count = 0;
+  // Record record;
+  // while (scanner.has_next()) {
+  //   rc = scanner.next(record);
+  //   if (rc != RC::SUCCESS) {
+  //     LOG_WARN("failed to fetch next record. rc=%d:%s", rc, strrc(rc));
+  //     return rc;
+  //   }
+  //   if (trx == nullptr || trx->is_visible(this, &record)) {
+  //     rc = record_reader(&record, context);
+  //     if (rc != RC::SUCCESS) {
+  //       break;
+  //     }
+  //     record_count++;
+  //   }
+  // }
 
-  scanner.close_scan();
-  return rc;
+  // scanner.close_scan();
+  return RC::SUCCESS;
 }
 
 RC Table::scan_record_by_index(Trx *trx, IndexScanner *scanner, ConditionFilter *filter,
                                int limit, void *context,
                                RC (*record_reader)(Record *, void *))
 {
-  RC rc = RC::SUCCESS;
-  RID rid;
-  Record record;
-  int record_count = 0;
-  while (record_count < limit) {
-    rc = scanner->next_entry(&rid);
-    if (rc != RC::SUCCESS) {
-      if (RC::RECORD_EOF == rc) {
-        rc = RC::SUCCESS;
-        break;
-      }
-      LOG_ERROR("Failed to scan table by index. rc=%d:%s", rc, strrc(rc));
-      break;
-    }
+  // RC rc = RC::SUCCESS;
+  // RID rid;
+  // Record record;
+  // int record_count = 0;
+  // while (record_count < limit) {
+  //   rc = scanner->next_entry(&rid);
+  //   if (rc != RC::SUCCESS) {
+  //     if (RC::RECORD_EOF == rc) {
+  //       rc = RC::SUCCESS;
+  //       break;
+  //     }
+  //     LOG_ERROR("Failed to scan table by index. rc=%d:%s", rc, strrc(rc));
+  //     break;
+  //   }
 
-    rc = record_handler_->get_record(&rid, &record);
-    if (rc != RC::SUCCESS) {
-      LOG_ERROR("Failed to fetch record of rid=%d:%d, rc=%d:%s", rid.page_num, rid.slot_num, rc, strrc(rc));
-      break;
-    }
+  //   rc = record_handler_->get_record(&rid, &record);
+  //   if (rc != RC::SUCCESS) {
+  //     LOG_ERROR("Failed to fetch record of rid=%d:%d, rc=%d:%s", rid.page_num, rid.slot_num, rc, strrc(rc));
+  //     break;
+  //   }
 
-    if ((trx == nullptr || trx->is_visible(this, &record)) && (filter == nullptr || filter->filter(record))) {
-      rc = record_reader(&record, context);
-      if (rc != RC::SUCCESS) {
-        LOG_TRACE("Record reader break the table scanning. rc=%d:%s", rc, strrc(rc));
-        break;
-      }
-    }
+  //   if ((trx == nullptr || trx->is_visible(this, &record)) && (filter == nullptr || filter->filter(record))) {
+  //     rc = record_reader(&record, context);
+  //     if (rc != RC::SUCCESS) {
+  //       LOG_TRACE("Record reader break the table scanning. rc=%d:%s", rc, strrc(rc));
+  //       break;
+  //     }
+  //   }
 
-    record_count++;
-  }
+  //   record_count++;
+  // }
 
-  scanner->destroy();
-  return rc;
+  // scanner->destroy();
+  return RC::SUCCESS;
 }
 
 class IndexInserter {
@@ -787,28 +793,28 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
     return rc;
   }
   // 遍历当前的所有数据，插入这个索引
-  auto l_orderkey_func = [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key, int page_num) -> bool {
-    int offset = index->field_meta().offset();
-    int val = 0;
-    decode_val(frame_data, frame_offset + offset, &val, 4 * 8 - pre_fex_bits);
-    val += pre_key;
-    index->insert_entry(val, page_num);
-    frame_offset += table_meta_.field(15)->offset() - pre_fex_bits;
-    huf_->decode(frame_data, frame_offset);
-    return false;
-  };
+  // auto l_orderkey_func = [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key, int page_num) -> bool {
+  //   int offset = index->field_meta().offset();
+  //   int val = 0;
+  //   decode_val(frame_data, frame_offset + offset, &val, 4 * 8 - pre_fex_bits);
+  //   val += pre_key;
+  //   index->insert_entry(val, page_num);
+  //   frame_offset += table_meta_.field(15)->offset() - pre_fex_bits;
+  //   huf_->decode(frame_data, frame_offset);
+  //   return false;
+  // };
 
-  auto l_shipdate_func = [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key, int page_num) -> bool {
-    int offset = index->field_meta().offset();
-    int len = index->field_meta().len();
-    int key = 0;
-    decode_val(frame_data, frame_offset + offset - pre_fex_bits, &key, len);
-    key /= 11;
-    index->insert_entry(key, page_num);
-    frame_offset += table_meta_.field(15)->offset() - pre_fex_bits;
-    huf_->decode(frame_data, frame_offset);
-    return false;
-  };
+  // auto l_shipdate_func = [&](char *frame_data, int &frame_offset, int pre_fex_bits, int pre_key, int page_num) -> bool {
+  //   int offset = index->field_meta().offset();
+  //   int len = index->field_meta().len();
+  //   int key = 0;
+  //   decode_val(frame_data, frame_offset + offset - pre_fex_bits, &key, len);
+  //   key /= 11;
+  //   index->insert_entry(key, page_num);
+  //   frame_offset += table_meta_.field(15)->offset() - pre_fex_bits;
+  //   huf_->decode(frame_data, frame_offset);
+  //   return false;
+  // };
   // IndexInserter index_inserter(index);
   // rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
   // std::vector<PageNum> pages;
@@ -926,44 +932,45 @@ RC Table::delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count)
 
 RC Table::delete_record(Trx *trx, Record *record)
 {
-  RC rc = RC::SUCCESS;
+  // RC rc = RC::SUCCESS;
   
-  rc = delete_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
-                record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
-    return rc;
-  } 
+  // rc = delete_entry_of_indexes(record->data(), record->rid(), false);  // 重复代码 refer to commit_delete
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
+  //               record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
+  //   return rc;
+  // } 
   
-  rc = record_handler_->delete_record(&record->rid());
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to delete record (rid=%d.%d). rc=%d:%s",
-                record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
-    return rc;
-  }
+  // rc = record_handler_->delete_record(&record->rid());
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Failed to delete record (rid=%d.%d). rc=%d:%s",
+  //               record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
+  //   return rc;
+  // }
 
-  if (trx != nullptr) {
-    rc = trx->delete_record(this, record);
+  // if (trx != nullptr) {
+  //   rc = trx->delete_record(this, record);
     
-    CLogRecord *clog_record = nullptr;
-    rc = clog_manager_->clog_gen_record(CLogType::REDO_DELETE, trx->get_current_id(), clog_record, name(), 0, record);
-    if (rc != RC::SUCCESS) {
-      LOG_ERROR("Failed to create a clog record. rc=%d:%s", rc, strrc(rc));
-      return rc;
-    }
-    rc = clog_manager_->clog_append_record(clog_record);
-    if (rc != RC::SUCCESS) {
-      return rc;
-    }
-  }
+  //   CLogRecord *clog_record = nullptr;
+  //   rc = clog_manager_->clog_gen_record(CLogType::REDO_DELETE, trx->get_current_id(), clog_record, name(), 0, record);
+  //   if (rc != RC::SUCCESS) {
+  //     LOG_ERROR("Failed to create a clog record. rc=%d:%s", rc, strrc(rc));
+  //     return rc;
+  //   }
+  //   rc = clog_manager_->clog_append_record(clog_record);
+  //   if (rc != RC::SUCCESS) {
+  //     return rc;
+  //   }
+  // }
 
-  return rc;
+  // return rc;
+  return RC::SUCCESS;
 }
 
 RC Table::recover_delete_record(Record *record)
 {
   RC rc = RC::SUCCESS;
-  rc = record_handler_->delete_record(&record->rid());
+  // rc = record_handler_->delete_record(&record->rid());
   
   return rc;
 }
@@ -971,35 +978,36 @@ RC Table::recover_delete_record(Record *record)
 RC Table::commit_delete(Trx *trx, const RID &rid)
 {
   RC rc = RC::SUCCESS;
-  Record record;
-  rc = record_handler_->get_record(&rid, &record);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-  rc = delete_entry_of_indexes(record.data(), record.rid(), false);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to delete indexes of record(rid=%d.%d). rc=%d:%s",
-        rid.page_num, rid.slot_num, rc, strrc(rc));  // panic?
-  }
+  // Record record;
+  // rc = record_handler_->get_record(&rid, &record);
+  // if (rc != RC::SUCCESS) {
+  //   return rc;
+  // }
+  // rc = delete_entry_of_indexes(record.data(), record.rid(), false);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Failed to delete indexes of record(rid=%d.%d). rc=%d:%s",
+  //       rid.page_num, rid.slot_num, rc, strrc(rc));  // panic?
+  // }
 
-  rc = record_handler_->delete_record(&rid);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
+  // rc = record_handler_->delete_record(&rid);
+  // if (rc != RC::SUCCESS) {
+  //   return rc;
+  // }
 
   return rc;
 }
 
 RC Table::rollback_delete(Trx *trx, const RID &rid)
 {
-  RC rc = RC::SUCCESS;
-  Record record;
-  rc = record_handler_->get_record(&rid, &record);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
+  // RC rc = RC::SUCCESS;
+  // Record record;
+  // rc = record_handler_->get_record(&rid, &record);
+  // if (rc != RC::SUCCESS) {
+  //   return rc;
+  // }
 
-  return trx->rollback_delete(this, record);  // update record in place
+  // return trx->rollback_delete(this, record);  // update record in place
+  return RC::SUCCESS;
 }
 
 RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
@@ -1152,16 +1160,17 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter)
 RC Table::sync()
 {
   RC rc = RC::SUCCESS;
-  for (Index *index : indexes_) {
-    rc = index->sync();
-    if (rc != RC::SUCCESS) {
-      LOG_ERROR("Failed to flush index's pages. table=%s, index=%s, rc=%d:%s",
-          name(), index->index_meta().name(), rc, strrc(rc));
-      return rc;
-    }
-  }
-  data_buffer_pool_->flush_all_pages();
-  if(Util::CompressFile(table_meta_file(base_dir_.c_str(),table_meta_.name()))!=0){
+  // for (Index *index : indexes_) {
+  //   rc = index->sync();
+  //   if (rc != RC::SUCCESS) {
+  //     LOG_ERROR("Failed to flush index's pages. table=%s, index=%s, rc=%d:%s",
+  //         name(), index->index_meta().name(), rc, strrc(rc));
+  //     return rc;
+  //   }
+  // }
+  data_buffer_pool_->sync(record_handler_->data_file_size());
+  str_data_buffer_pool_->sync(record_handler_->str_file_size());
+  if (Util::CompressFile(table_meta_file(base_dir_.c_str(), table_meta_.name())) != 0) {
     return RC::ABORT;
   }
   if(Util::CompressFile(table_data_file(base_dir_.c_str(),table_meta_.name()))!=0){

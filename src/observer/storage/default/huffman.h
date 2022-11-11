@@ -157,14 +157,12 @@ public:
     encode_into_word(data, offset, end);
   }
 
-  string decode(const char *code,int &offset){
+  string decode(const char *code,uint64_t &offset){
     string res;
     string p;
     while((p=decode_into_word(code,offset))!="\0"){
       res.append(p);
     }
-    /* 一字节对齐 */
-    offset = ((offset - 1) / 8 + 1) * 8;
     return res;
   }
 
@@ -175,11 +173,11 @@ private:
       offset++;
     }
   }
-  string decode_into_word(const char*code,int &offset){
+  string decode_into_word(const char*code,uint64_t &offset){
     /* 根节点就是最后的节点 */
     return decode_word(tree_.size() - 1, code, offset);
   }
-  string decode_word(int id,const char*code,int &offset){
+  string decode_word(int id,const char*code,uint64_t &offset){
     if(tree_[id].first==-1&&tree_[id].second==-1){
       return id_words_[id];
     }
